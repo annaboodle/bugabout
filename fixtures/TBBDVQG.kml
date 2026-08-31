@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.2">
+
+<Document><Style id="tbTravelStyle"><LineStyle>
+  <width>3</width>
+  <color>ff00ffff</color>
+</LineStyle><PolyStyle>
+  <color>ff00ffff</color>
+</PolyStyle></Style><name>Brassica</name><description><![CDATA[<p>A cabbage of impeccable lineage, Brassica hails from the noble house of <em>Brassica oleracea</em> (same as the kales, the broccolis, and her adorable little cousins, the Brussels). During a long season in the soil, she dreamed of a life on the road, untethered to just one patch of dirt. While her relatives resigned themselves to slaws and stir-fries, Brassica turned her visions into reality: she pulled up her roots, brushed herself off, and began her quest to be the best-traveled vegetable in the Pacific Northwest.</p>
+
+<p>A longtime beacon of the Seattle geocaching community, she is now the patron cabbage and official mascot of &quot;CABBAGES: Conversations at Ballard Breweries About Geocaching&quot;. She recently discovered the joy of a craft beer on a sunny summer day, and plans to sample Ballard&#39;s finest all season long while befriending as many geocachers as possible. Brassica is equal parts grande dame and field agent: she has strong opinions about LPCs, she will not tolerate a soggy logbook, and she believes deeply that one should&nbsp;<em><strong>leaf no cache behind</strong></em>.&nbsp;🥬</p>
+Brassica has traveled 1.67083796083755 miles.]]></description><Folder><Style /><name>Travel Bug Stops (1.67083796083755 mile(s))</name><open>0</open><Placemark><name>GCBN82V</name><Point><coordinates>-122.3777,47.665,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|1|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBNZD7</name><Point><coordinates>-122.3864,47.6682,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBNZDJ</name><Point><coordinates>-122.3667,47.6669,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|3|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBNZDN</name><Point><coordinates>-122.3688,47.6649,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|4|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBNZDV</name><Point><coordinates>-122.3708,47.6662,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|5|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBNZDZ</name><Point><coordinates>-122.3676,47.6649,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|6|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark></Folder><Placemark><styleUrl>#tbTravelStyle</styleUrl><name>Travelbug Route</name><LineString><extrude>1</extrude><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><coordinates>-122.3777,47.665,100  
+-122.3864,47.6682,100  
+-122.3667,47.6669,100  
+-122.3688,47.6649,100  
+-122.3708,47.6662,100  
+-122.3676,47.6649,100  
+</coordinates></LineString><visibility>1</visibility></Placemark></Document></kml>

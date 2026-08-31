@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-status="running">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="../" />
+    <title>Bugabout browser smoke tests</title>
+    <style>
+      :root {
+        color: #18322c;
+        background: #f7f3e9;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+
+      body {
+        width: min(760px, calc(100% - 32px));
+        margin: 48px auto;
+      }
+
+      h1 {
+        font-family: Georgia, serif;
+      }
+
+      #summary {
+        font-weight: 700;
+      }
+
+      li {
+        margin: 10px 0;
+      }
+
+      .pass::before {
+        content: "✓ ";
+        color: #1f684f;
+      }
+
+      .fail::before {
+        content: "✕ ";
+        color: #d7553f;
+      }
+
+      pre {
+        padding: 16px;
+        overflow: auto;
+        border-radius: 12px;
+        background: #fffdf7;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bugabout browser smoke tests</h1>
+    <p id="summary" role="status" aria-live="polite">Running…</p>
+    <ol id="results"></ol>
+    <pre id="details" hidden></pre>
+
+    <script src="./kml-importer.js"></script>
+    <script src="./country-lookup.js"></script>
+    <script src="./journey-link.js"></script>
+    <script type="module" src="./tests/smoke.mjs"></script>
+  </body>
+</html>
