@@ -252,9 +252,14 @@ button {
   /* From retro sunset, along with the filter and the ramp below. */
   --map-ground: #bfd9e0;
   --map-ground-warm: #e9dcc4;
-  --map-filter: sepia(0.18) saturate(0.95) contrast(1.03) brightness(1.02);
-  --route-stops: #e4462e, #ef7f34, #f0b03c, #efe3a0, #8fd0e0, #58c0d8;
-  --route-preview: #b9a68c;
+  --map-filter: sepia(0.25) saturate(0.45) brightness(1.14) contrast(0.95);
+  /* Sunset's arc, rerouted through rose and violet. Its cream and pale-sky
+     stops sat *lighter* than the forest and water they crossed, so softening the
+     map could not rescue them — only darkening the ramp could. The bridge has to
+     go via the pink side: any amber-to-teal interpolation passes through an
+     olive midpoint that collides with the green cache markers. */
+  --route-stops: #d92d20, #ee6a1f, #e8a317, #e8557f, #8b5cf6, #2f7fd9;
+  --route-preview: #a89478;
   /* Sunset remaps --green to red, which would drag the cache markers with it.
      Keeping green here is the point of this variant; only the wake turns warm,
      and it starts yellow rather than the shared coral. */

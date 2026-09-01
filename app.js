@@ -2587,7 +2587,14 @@ const HEMISPHERE_NAMES = { N: "northern", S: "southern", E: "eastern", W: "weste
 // the cache code, rather than a column of bare numbers with the names buried.
 function reachRow(name, index, degrees) {
   const stop = journey[index];
-  const where = stop ? [stop.region, stop.country].filter(Boolean).join(", ") : "";
+  // "Washington, United States" is twice the length of the other three and this
+  // column sizes to its longest row, so US stops take the postal abbreviation.
+  // The cache link underneath still resolves the exact spot.
+  const where = !stop
+    ? ""
+    : stop.regionCode
+      ? `${stop.regionCode}, USA`
+      : [stop.region, stop.country].filter(Boolean).join(", ");
   const flag = where && flagsRender() ? flagEmoji(stop.countryCode) : "";
   const mark = flag ? `<span class="place-flag" aria-hidden="true">${flag}</span>` : "";
   const reference = stop ? stopCodeHtml(stop) : "";
