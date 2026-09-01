@@ -764,6 +764,23 @@ function scrollLogToTop() {
 // Same desktop-only rule as scrollLogToTop, for the same reason: on mobile the
 // page is the scroller, so pulling a row into view drags the map off screen —
 // exactly what someone watching playback does not want.
+// Scrubbing and starting playback both re-aim the journey, so the log goes home:
+// any expanded window collapses and the sidebar returns to the top, where the
+// "Journey log" heading and the By time / By place toggle live. Bringing the
+// active card to rest against the top edge instead scrolls both of them away,
+// and the windowed list already keeps that card a heading's height from the top.
+function returnLogHome() {
+  if (logExpandBefore || logExpandAfter) {
+    // Anchored, so collapsing the rows does not shift what is on screen — on
+    // mobile that shift is the whole viewport, since the page is the scroller.
+    rebuildLogWithTransition(() => {
+      logExpandBefore = 0;
+      logExpandAfter = 0;
+    });
+  }
+  scrollLogToTop();
+}
+
 function scrollLogToStop(index) {
   const sidebar = els.journeySidebar;
   if (sidebar.scrollHeight <= sidebar.clientHeight + 1) return;
@@ -1874,18 +1891,9 @@ function play() {
     showToast("This journey has only one mapped stop.");
     return;
   }
-  if (state.progress >= maxProgress) setProgress(0, { force: true, pan: true, scroll: true });
+  if (state.progress >= maxProgress) setProgress(0, { force: true, pan: true });
   engageFollow({ snap: !followActive });
-  if (logExpandBefore || logExpandAfter) {
-    // Anchored, so collapsing the rows does not shift what is on screen — on
-    // mobile that shift is the whole viewport, since the page is the scroller.
-    // The desktop scroll below then takes the card deliberately to the top.
-    rebuildLogWithTransition(() => {
-      logExpandBefore = 0;
-      logExpandAfter = 0;
-    });
-    scrollLogToTop();
-  }
+  returnLogHome();
   state.playing = true;
   syncSound();
   state.lastTime = null;
@@ -2765,7 +2773,8 @@ els.timeline.addEventListener("input", (event) => {
 });
 
 els.timeline.addEventListener("change", (event) => {
-  setProgress(event.target.value, { force: true, pan: true, scroll: true });
+  setProgress(event.target.value, { force: true, pan: true });
+  returnLogHome();
 });
 
 els.speedButton.addEventListener("click", () => {
