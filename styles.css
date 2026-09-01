@@ -240,8 +240,11 @@ button {
   --green-dark: #35591f;
   --green-light: #5c9142;
   --mint: #dcecc9;
-  --coral: #c4562f;
-  --coral-dark: #a3421f;
+  /* Garden's brick #c4562f went muddy against this theme's warmer map. A brighter
+     poppy keeps the same job — movement, the play button, the bug's ring — and
+     sits with the yellow wake and the ramp's sky-blue tail. */
+  --coral: #ef476f;
+  --coral-dark: #d12f57;
   --yellow: #e8c04a;
   --blue: #7fb3d5;
   --highlight: #f1f7db;
