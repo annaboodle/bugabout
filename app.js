@@ -191,6 +191,13 @@ const els = {
   placesDialog: document.querySelector("#placesDialog"),
   placesEyebrow: document.querySelector("#placesEyebrow"),
   placesList: document.querySelector("#placesList"),
+  placesScroller: document.querySelector("#placesScroller"),
+  appShell: document.querySelector(".app-shell"),
+  emptyState: document.querySelector("#emptyState"),
+  emptyActions: document.querySelector("#emptyActions"),
+  headerActions: document.querySelector("#headerActions"),
+  introActions: document.querySelector("#introActions"),
+  openKmlLabel: document.querySelector("#openKmlButton .button-label"),
   placesTitle: document.querySelector("#placesTitle"),
   countryStat: document.querySelector("#countryStat"),
   countryStatCard: document.querySelector("#countryStatCard"),
@@ -207,6 +214,9 @@ const els = {
   journeyDescription: document.querySelector("#journeyDescription"),
   journeySidebar: document.querySelector(".journey-sidebar"),
   journeyStats: document.querySelector("#journeyStats"),
+  statsScroller: document.querySelector("#statsScroller"),
+  statsNudgeBack: document.querySelector("#statsNudgeBack"),
+  statsNudgeNext: document.querySelector("#statsNudgeNext"),
   journeyTitle: document.querySelector("#journeyTitle"),
   journeyTitleText: document.querySelector("#journeyTitleText"),
   kmlInput: document.querySelector("#kmlInput"),
@@ -216,6 +226,7 @@ const els = {
   mapStage: document.querySelector(".map-stage"),
   openKmlButton: document.querySelector("#openKmlButton"),
   playButton: document.querySelector("#playButton"),
+  playerCard: document.querySelector(".player-card"),
   playerDate: document.querySelector("#playerDate"),
   playerPlace: document.querySelector("#playerPlace"),
   shareButton: document.querySelector("#shareButton"),
@@ -314,6 +325,8 @@ let map;
 let routeLine;
 let routeBands = [];
 let bugMarkers = [];
+let bugPosition = null;
+let visibleBugCopy = null;
 let stopMarkers = new Map();
 let sampledIndexes = [];
 
@@ -379,6 +392,37 @@ function flagEmoji(code) {
   return String.fromCodePoint(...[...code].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
 }
 
+// Colour glyphs paint their own colours whatever the fill is, so filling black
+// and reading back a chromatic pixel proves a real flag rendered rather than the
+// "FI" letter-pair some platforms fall back to. A width comparison was tried
+// first and was wrong: the pair measures *wider* than the two letters.
+let flagsRenderCache = null;
+function flagsRender() {
+  if (flagsRenderCache !== null) return flagsRenderCache;
+  flagsRenderCache = false;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 24;
+    canvas.height = 24;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = "#000";
+    ctx.textBaseline = "top";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("\u{1F1EB}\u{1F1EE}", 0, 0);
+    const { data } = ctx.getImageData(0, 0, 24, 24);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) continue;
+      if (data[i] !== data[i + 1] || data[i + 1] !== data[i + 2]) {
+        flagsRenderCache = true;
+        break;
+      }
+    }
+  } catch {
+    flagsRenderCache = false;
+  }
+  return flagsRenderCache;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -390,11 +434,17 @@ function escapeHtml(value) {
 }
 
 const LOG_WINDOW = 64;
+const STOP_SELECTION_DURATION = 240;
 
 // The window normally follows the bug. These let a paused reader pull more of the
 // journey into view without losing that behaviour once playback resumes.
 let logExpandBefore = 0;
 let logExpandAfter = 0;
+// Directly selecting a visible row pins the current window so the card changes
+// in place. Playback and every other navigation path clear the pin and resume
+// the normal behaviour of opening the window on the current stop.
+let logWindowStart = null;
+let stopSelectionFrame = null;
 
 let logMode = "time";
 let placeTree = [];
@@ -435,7 +485,12 @@ function indexWindow(indexes, centerIndex) {
   const size = LOG_WINDOW + logExpandBefore + logExpandAfter;
   if (indexes.length <= Math.max(120, size)) return { start: 0, end: indexes.length };
   const position = Math.max(0, indexes.indexOf(centerIndex));
-  const start = clamp(position - logExpandBefore, 0, indexes.length - size);
+  let start = clamp(position - logExpandBefore, 0, indexes.length - size);
+  if (logWindowStart !== null) {
+    const pinned = clamp(logWindowStart, 0, indexes.length - size);
+    if (position >= pinned && position < pinned + size) start = pinned;
+    else logWindowStart = null;
+  }
   return { start, end: start + size };
 }
 
@@ -445,9 +500,9 @@ function stopRowHtml(index, depth = 0, active = false) {
   const date = stop.date ? compactDateFormat.format(toDate(stop.date)) : `Stop ${index + 1}`;
   const story =
     stop.kicker || stop.story
-      ? `<span class="stop-story">${stop.kicker ? `<span class="stop-kicker">${escapeHtml(stop.kicker)}</span>` : ""}${
-          stop.story ? `<span class="stop-text">${escapeHtml(stop.story)}</span>` : ""
-        }</span>`
+      ? `<span class="stop-story"><span class="stop-story-inner">${
+          stop.kicker ? `<span class="stop-kicker">${escapeHtml(stop.kicker)}</span>` : ""
+        }${stop.story ? `<span class="stop-text">${escapeHtml(stop.story)}</span>` : ""}</span></span>`
       : "";
   const link = stop.cacheUrl
     ? `<a class="stop-cache-link" href="${escapeHtml(stop.cacheUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(stop.code)} on Geocaching" title="View ${escapeHtml(stop.code)} on Geocaching"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16 16 8M9.5 8H16v6.5" /></svg></a>`
@@ -552,6 +607,22 @@ function expandedLeafIndexes() {
   return country.states.find((region) => region.name === expandedState)?.indexes ?? null;
 }
 
+function pinCurrentLogWindow() {
+  const firstRow = els.stopList.querySelector(".stop-item");
+  if (!firstRow) {
+    logWindowStart = null;
+    return;
+  }
+  const firstIndex = Number(firstRow.dataset.stop);
+  if (logMode === "time") {
+    logWindowStart = firstIndex;
+    return;
+  }
+  const leaf = expandedLeafIndexes();
+  const position = leaf?.indexOf(firstIndex) ?? -1;
+  logWindowStart = position >= 0 ? position : null;
+}
+
 // Structure only. Active-row highlighting is a class toggle handled separately,
 // so playback does not rebuild the list on every stop.
 function logSignature(centerIndex) {
@@ -599,6 +670,7 @@ function rebuildLogWithTransition(change, { anchor = true } = {}) {
     ? els.stopList.querySelector(".stop-item.active")?.getBoundingClientRect().top ?? null
     : null;
 
+  logWindowStart = null;
   change();
   buildStopList(state.currentIndex, true);
   updateStops(state.currentIndex);
@@ -615,14 +687,76 @@ function rebuildLogWithTransition(change, { anchor = true } = {}) {
   const drift = anchorAfter - anchorBefore;
   if (Math.abs(drift) < 1) return;
 
-  // The sidebar scrolls on desktop; the page itself scrolls on mobile.
+  offsetLogScroll(drift);
+}
+
+// The sidebar scrolls on desktop; the page itself scrolls on mobile.
+function offsetLogScroll(drift) {
   const sidebar = els.journeySidebar;
   if (sidebar.scrollHeight > sidebar.clientHeight + 1) sidebar.scrollTop += drift;
   else window.scrollBy(0, drift);
 }
 
+function restoreStopRowPosition(index, topBefore) {
+  const selected = els.stopList.querySelector(`[data-stop="${index}"]`);
+  if (!selected) return;
+  const drift = selected.getBoundingClientRect().top - topBefore;
+  if (Math.abs(drift) >= 1) offsetLogScroll(drift);
+}
+
+function cancelStopSelectionAnimation() {
+  if (stopSelectionFrame !== null) cancelAnimationFrame(stopSelectionFrame);
+  stopSelectionFrame = null;
+  els.stopList.classList.remove("selecting-stop");
+}
+
+function prepareStopSelectionAnimation() {
+  cancelStopSelectionAnimation();
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  els.stopList.classList.add("selecting-stop");
+  // Establish the transition rules before the active classes change.
+  void els.stopList.offsetHeight;
+}
+
+// The old card shrinks while the clicked row grows. Hold the clicked row at the
+// same viewport coordinate throughout that exchange so the polish never brings
+// back the jump this interaction was designed to remove.
+function animateStopSelection(index, topBefore) {
+  restoreStopRowPosition(index, topBefore);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const started = performance.now();
+  const holdPosition = (now) => {
+    restoreStopRowPosition(index, topBefore);
+    if (now - started < STOP_SELECTION_DURATION + 40) {
+      stopSelectionFrame = requestAnimationFrame(holdPosition);
+      return;
+    }
+    stopSelectionFrame = null;
+    els.stopList.classList.remove("selecting-stop");
+    restoreStopRowPosition(index, topBefore);
+  };
+  stopSelectionFrame = requestAnimationFrame(holdPosition);
+}
+
+// All the way up rather than just far enough to reveal the active card: the
+// "Journey log" heading and the By time / By place toggle come back with it, and
+// the card sits right under them anyway once the window is collapsed.
+function scrollLogToTop() {
+  const sidebar = els.journeySidebar;
+  // Desktop only. On mobile the page is the scroller and the log sits below the
+  // map, which cannot share the screen with it, so there is nothing worth
+  // scrolling to and doing so would pull the map away as playback starts.
+  if (sidebar.scrollHeight <= sidebar.clientHeight + 1) return;
+  sidebar.scrollTo({
+    top: 0,
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+  });
+}
+
 function setLogMode(mode) {
   if (logMode === mode) return;
+  logWindowStart = null;
   logMode = mode;
   els.logByTime.classList.toggle("selected", mode === "time");
   els.logByPlace.classList.toggle("selected", mode === "place");
@@ -648,14 +782,20 @@ function initializeMap() {
     zoom: 2,
     zoomControl: false,
     worldCopyJump: true,
-    minZoom: 2,
+    // A phone-width map needs to dip below zoom 2 to make a genuinely global
+    // journey fit. Fractional zoom keeps the world as large as the pane allows.
+    minZoom: 0,
     zoomSnap: 0,
   });
 
-  map.on("moveend", refreshStopMarkers);
+  map.on("moveend", () => {
+    refreshStopMarkers();
+    showNearestBugCopy();
+  });
   map.on("dragstart", disengageFollow);
   map.getContainer().addEventListener("wheel", disengageFollow, { passive: true });
   map.getContainer().addEventListener("dblclick", disengageFollow);
+  new ResizeObserver(() => scheduleMapLayout()).observe(map.getContainer());
 
   // A coarse layer that never changes zoom level sits underneath the detailed
   // one. Changing zoom drops the old tiles before the new ones arrive, and with
@@ -719,6 +859,14 @@ function wrappedRouteLatLngs(points) {
 
 function routeLatLngs(stops) {
   return wrappedRouteLatLngs(stops.map((stop) => [stop.lat, stop.lng]));
+}
+
+// Fit the geometry the route actually draws, not just its cache coordinates.
+// A dateline crossing adds endpoints at both ±180°; omitting them lets
+// fitBounds crop the flight to and from the edge even though every stop fits.
+function routeFitBounds() {
+  const points = journey.map((stop) => [stop.lat, stop.lng]);
+  return L.latLngBounds(splitAtAntimeridian(points).flat());
 }
 
 // Sampling the whole journey meant only every 21st stop on the large fixture had
@@ -799,6 +947,8 @@ function clearMapJourney() {
   routeLine = null;
   routeBands = [];
   bugMarkers = [];
+  bugPosition = null;
+  visibleBugCopy = null;
   stopMarkers = new Map();
   sampledIndexes = [];
 }
@@ -834,10 +984,30 @@ function buildMapJourney() {
 
   window.setTimeout(() => {
     map.invalidateSize();
-    fitRoute(false);
     updateCameraControls();
+    if (followEnabled) activateFollowCamera();
+    else fitRoute(false);
     refreshStopMarkers();
   }, 0);
+}
+
+// Route vectors repeat across wrapped worlds, but the story has one bug. At a
+// globe-scale mobile fit more than one world edge can enter the pane; showing
+// only the copy nearest the camera avoids a second, clipped bug in the margin.
+function showNearestBugCopy() {
+  if (!map || !bugPosition || !bugMarkers.length) return;
+  const centre = map.getCenter().lng;
+  let nearest = 0;
+  let distance = Infinity;
+  worldOffsets.forEach((offset, index) => {
+    const candidate = Math.abs(bugPosition[1] + offset - centre);
+    if (candidate >= distance) return;
+    distance = candidate;
+    nearest = index;
+  });
+  if (nearest === visibleBugCopy) return;
+  visibleBugCopy = nearest;
+  bugMarkers.forEach((marker, index) => marker.setOpacity(index === nearest ? 1 : 0));
 }
 
 // Each band owns a contiguous run of stops and keeps one polyline. Adjacent bands
@@ -961,16 +1131,31 @@ function syncSound() {
   else bee.stop();
 }
 
+function renderSpeedControl() {
+  els.speedButton.textContent = `Speed ${state.speed}×`;
+  els.speedButton.setAttribute("aria-label", `Playback speed: ${state.speed}×`);
+}
+
 let followEnabled = true;
 let followActive = false;
+let routeFitActive = true;
 let camera = null;
 let appliedCamera = null;
 let cameraTime = 0;
 let cameraSnap = false;
 let cameraView = null;
+let mapLayoutFrame = null;
+let animateNextRouteFit = false;
+let mapLayoutTransitioning = false;
+let mapLayoutTransitionToken = 0;
+let mapLayoutAnimations = [];
+
+const MAP_LAYOUT_TRANSITION_DURATION = 420;
+const FOLLOW_CAMERA_TRANSITION_DURATION = 0.55;
 
 function disengageFollow() {
   followActive = false;
+  routeFitActive = false;
 }
 
 function unwrapLongitude(longitude, reference) {
@@ -1030,7 +1215,7 @@ function viewHolds(position) {
 
 function routeFitZoom() {
   if (!map || !journey.length) return 0;
-  const bounds = L.latLngBounds(journey.map((stop) => [stop.lat, stop.lng]));
+  const bounds = routeFitBounds();
   return map.getBoundsZoom(
     bounds,
     false,
@@ -1129,14 +1314,18 @@ function updateCamera(index, position) {
 }
 
 function setFollowEnabled(enabled) {
+  const changed = followEnabled !== enabled;
   followEnabled = enabled;
   followActive = enabled && followActive;
   els.followButton.setAttribute("aria-pressed", String(enabled));
   els.fitButton.setAttribute("aria-pressed", String(!enabled));
+  els.mapStage.classList.toggle("whole-route-view", !enabled);
+  if (changed) scheduleMapLayout();
 }
 
 function engageFollow({ snap = true } = {}) {
   if (!followEnabled) return;
+  routeFitActive = false;
   if (!followActive) {
     camera = null;
     appliedCamera = null;
@@ -1154,19 +1343,267 @@ function updateCameraControls() {
   if (unnecessary) setFollowEnabled(false);
 }
 
+const ROUTE_FIT_PAD_X = 42;
+const ROUTE_FIT_PAD_TOP = 85;
+const ROUTE_FIT_PAD_BOTTOM = 150;
+const MOBILE_ROUTE_FIT_PAD_X = 24;
+const MOBILE_ROUTE_FIT_PAD_TOP = 72;
+const MOBILE_ROUTE_FIT_PAD_BOTTOM = 24;
+const GLOBE_ROUTE_LONGITUDE_SPAN = 300;
+
+function wholeRoutePadding() {
+  const stacked =
+    els.mapStage.classList.contains("whole-route-view") &&
+    window.matchMedia("(max-width: 780px)").matches;
+  return stacked
+    ? {
+        x: MOBILE_ROUTE_FIT_PAD_X,
+        top: MOBILE_ROUTE_FIT_PAD_TOP,
+        bottom: MOBILE_ROUTE_FIT_PAD_BOTTOM,
+      }
+    : { x: ROUTE_FIT_PAD_X, top: ROUTE_FIT_PAD_TOP, bottom: ROUTE_FIT_PAD_BOTTOM };
+}
+
+function wholeRouteView(bounds) {
+  const padding = wholeRoutePadding();
+  const zoom = map.getBoundsZoom(
+    bounds,
+    false,
+    L.point(padding.x * 2, padding.top + padding.bottom),
+  );
+  const northWest = map.project(bounds.getNorthWest(), zoom);
+  const southEast = map.project(bounds.getSouthEast(), zoom);
+  const centre = northWest.add(southEast).divideBy(2);
+
+  // A globe-spanning route is usually concentrated away from the equator.
+  // Centring on those stops exposes Leaflet's hard north or south map edge,
+  // even though the horizontally wrapping world still has room. Prefer the
+  // equator so the world itself is vertically balanced, then constrain that
+  // choice only as much as needed to keep every stop inside the safe area.
+  const longitudeSpan = Math.abs(bounds.getEast() - bounds.getWest());
+  if (longitudeSpan >= GLOBE_ROUTE_LONGITUDE_SPAN) {
+    const mapSize = map.getSize();
+    const worldCentre = map.project(L.latLng(0, bounds.getCenter().lng), zoom);
+    const minimumCentreY = southEast.y - mapSize.y / 2 + padding.bottom;
+    const maximumCentreY = northWest.y + mapSize.y / 2 - padding.top;
+
+    if (minimumCentreY <= maximumCentreY) {
+      worldCentre.y = clamp(worldCentre.y, minimumCentreY, maximumCentreY);
+      return { centre: map.unproject(worldCentre, zoom), zoom };
+    }
+  }
+
+  // Centre the route inside the safe area. Moving all aspect-ratio slack below
+  // the route made a width-constrained world view crop at the top as the pane
+  // changed shape. Only the exact asymmetric-padding correction belongs here.
+  centre.y += (padding.bottom - padding.top) / 2;
+
+  return { centre: map.unproject(centre, zoom), zoom };
+}
+
 function fitRoute(animate = true) {
   if (!map || !journey.length) return;
+  routeFitActive = true;
   if (journey.length === 1) {
     map.setView([journey[0].lat, journey[0].lng], 12, { animate });
     return;
   }
-  const bounds = L.latLngBounds(journey.map((stop) => [stop.lat, stop.lng]));
-  map.fitBounds(bounds, {
-    paddingTopLeft: [42, 85],
-    paddingBottomRight: [42, 150],
+  const bounds = routeFitBounds();
+  const view = wholeRouteView(bounds);
+  map.setView(view.centre, view.zoom, {
     animate,
     duration: 0.7,
   });
+}
+
+// Leaflet notices a browser resize, but it preserves the previous centre and
+// zoom. Whole route needs a fresh fit because the limiting axis may have changed;
+// Follow bug needs a fresh camera frame. ResizeObserver also catches the mobile
+// mode switch, where CSS changes the map without resizing the window.
+function scheduleMapLayout({ animateFit = false } = {}) {
+  animateNextRouteFit ||= animateFit;
+  if (!map || mapLayoutFrame !== null) return;
+  mapLayoutFrame = requestAnimationFrame(() => {
+    mapLayoutFrame = null;
+    const animate = animateNextRouteFit;
+    animateNextRouteFit = false;
+    map.invalidateSize({ pan: false });
+    if (mapLayoutTransitioning) return;
+    if (!journey.length) return;
+
+    if (!followEnabled || routeFitActive) {
+      fitRoute(animate);
+      return;
+    }
+    if (!followActive) return;
+
+    camera = null;
+    appliedCamera = null;
+    cameraView = null;
+    cameraTime = 0;
+    cameraSnap = true;
+    setProgress(state.progress, { force: true });
+  });
+}
+
+function activateFollowCamera({ animate = false } = {}) {
+  engageFollow({ snap: !animate });
+  if (!animate || typeof map.flyTo !== "function") {
+    setProgress(state.progress, { force: true });
+    return;
+  }
+
+  const index = Math.min(Math.floor(state.progress / 100), journey.length - 1);
+  const position = bugPosition ?? [journey[index].lat, journey[index].lng];
+  const target = viewForFrame(windowFrame(index, position));
+  cameraView = target;
+  camera = { ...target };
+  appliedCamera = { ...target };
+  cameraTime = performance.now();
+  cameraSnap = false;
+  map.flyTo([target.lat, normalizeLongitude(target.lng)], target.zoom, {
+    duration: FOLLOW_CAMERA_TRANSITION_DURATION,
+    easeLinearity: 0.25,
+  });
+}
+
+function cancelMapLayoutTransition() {
+  mapLayoutTransitionToken += 1;
+  mapLayoutAnimations.forEach((animation) => animation.cancel());
+  mapLayoutAnimations = [];
+  mapLayoutTransitioning = false;
+  els.mapStage.classList.remove("map-layout-transitioning");
+  if (mapLayoutFrame !== null) {
+    cancelAnimationFrame(mapLayoutFrame);
+    mapLayoutFrame = null;
+  }
+  animateNextRouteFit = false;
+}
+
+// Mobile runs two different layouts: a stacked overview with the player below
+// the map, and a tall map with the player overlaid. Switching either way is
+// animated so the map does not jump between shapes. `applyLayout` performs the
+// actual state change between the before and after measurements; `settle` runs
+// once the geometry has stopped moving and re-aims the camera.
+function transitionMapLayout(applyLayout, settle) {
+  cancelMapLayoutTransition();
+
+  const canAnimate =
+    map &&
+    typeof els.mapStage.animate === "function" &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (!canAnimate) {
+    applyLayout();
+    settle(false);
+    return;
+  }
+
+  const stageFrom = els.mapStage.getBoundingClientRect().height;
+  const mapFrom = map.getContainer().getBoundingClientRect().height;
+  const playerFrom = els.playerCard.getBoundingClientRect().width;
+  const styleFrom = getComputedStyle(els.playerCard);
+  const cardFrom = {
+    bottom: styleFrom.bottom,
+    borderRadius: styleFrom.borderRadius,
+    boxShadow: styleFrom.boxShadow,
+  };
+
+  const token = (mapLayoutTransitionToken += 1);
+  mapLayoutTransitioning = true;
+  applyLayout();
+
+  const stageTo = els.mapStage.getBoundingClientRect().height;
+  const mapTo = map.getContainer().getBoundingClientRect().height;
+  const playerTo = els.playerCard.getBoundingClientRect().width;
+  const styleTo = getComputedStyle(els.playerCard);
+
+  // Desktop serves one layout for both modes, so nothing moved and there is
+  // nothing to animate. Checking the measurements rather than the breakpoint
+  // keeps this correct if the layouts ever converge at another width.
+  if (Math.abs(stageFrom - stageTo) < 1 && Math.abs(mapFrom - mapTo) < 1) {
+    mapLayoutTransitioning = false;
+    settle(false);
+    return;
+  }
+
+  els.mapStage.classList.add("map-layout-transitioning");
+  const timing = {
+    duration: MAP_LAYOUT_TRANSITION_DURATION,
+    easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    fill: "both",
+  };
+  mapLayoutAnimations = [
+    els.mapStage.animate([{ height: `${stageFrom}px` }, { height: `${stageTo}px` }], timing),
+    map
+      .getContainer()
+      .animate([{ height: `${mapFrom}px` }, { height: `${mapTo}px` }], timing),
+    els.playerCard.animate(
+      [
+        {
+          ...cardFrom,
+          transform: `scaleX(${playerTo ? playerFrom / playerTo : 1})`,
+          transformOrigin: "center bottom",
+        },
+        {
+          bottom: styleTo.bottom,
+          borderRadius: styleTo.borderRadius,
+          boxShadow: styleTo.boxShadow,
+          transform: "scaleX(1)",
+          transformOrigin: "center bottom",
+        },
+      ],
+      timing,
+    ),
+  ];
+
+  Promise.allSettled(mapLayoutAnimations.map((animation) => animation.finished)).then(() => {
+    if (token !== mapLayoutTransitionToken) return;
+    const completed = mapLayoutAnimations;
+    mapLayoutAnimations = [];
+    completed.forEach((animation) => animation.cancel());
+    els.mapStage.classList.remove("map-layout-transitioning");
+    if (mapLayoutFrame !== null) {
+      cancelAnimationFrame(mapLayoutFrame);
+      mapLayoutFrame = null;
+    }
+    animateNextRouteFit = false;
+    map.invalidateSize({ pan: false });
+    settle(true);
+    requestAnimationFrame(() => {
+      if (token === mapLayoutTransitionToken) mapLayoutTransitioning = false;
+    });
+  });
+}
+
+function transitionToFollow() {
+  transitionMapLayout(
+    () => setFollowEnabled(true),
+    (animated) => {
+      if (!animated) {
+        activateFollowCamera();
+        scheduleMapLayout();
+        return;
+      }
+      activateFollowCamera({ animate: true });
+    },
+  );
+}
+
+function transitionToWholeRoute() {
+  transitionMapLayout(
+    () => {
+      setFollowEnabled(false);
+      disengageFollow();
+    },
+    (animated) => {
+      if (!animated) {
+        scheduleMapLayout({ animateFit: true });
+        return;
+      }
+      fitRoute(true);
+    },
+  );
 }
 
 function interpolatePosition(from, to, amount) {
@@ -1326,13 +1763,19 @@ function updateRoute(progress) {
   const band = routeBands[activeBand];
   band.line.setLatLngs(bandLatLngs(band, segmentIndex, travelling ? position : null));
 
-  bugMarkers.forEach((marker, index) =>
-    marker.setLatLng([position[0], position[1] + worldOffsets[index]]),
-  );
+  bugPosition = position;
+  bugMarkers.forEach((marker, index) => {
+    marker.setLatLng([position[0], position[1] + worldOffsets[index]]);
+  });
+  showNearestBugCopy();
   updateCamera(segmentIndex, position);
 }
 
 function setProgress(value, options = {}) {
+  if (!options.preserveLogWindow) {
+    logWindowStart = null;
+    cancelStopSelectionAnimation();
+  }
   const progress = clamp(Number(value), 0, maxProgress);
   const index = Math.min(Math.floor(progress / 100), journey.length - 1);
   const indexChanged = index !== state.currentIndex;
@@ -1395,8 +1838,16 @@ function play() {
   }
   if (state.progress >= maxProgress) setProgress(0, { force: true, pan: true, scroll: true });
   engageFollow({ snap: !followActive });
-  logExpandBefore = 0;
-  logExpandAfter = 0;
+  if (logExpandBefore || logExpandAfter) {
+    // Anchored, so collapsing the rows does not shift what is on screen — on
+    // mobile that shift is the whole viewport, since the page is the scroller.
+    // The desktop scroll below then takes the card deliberately to the top.
+    rebuildLogWithTransition(() => {
+      logExpandBefore = 0;
+      logExpandAfter = 0;
+    });
+    scrollLogToTop();
+  }
   state.playing = true;
   syncSound();
   state.lastTime = null;
@@ -1427,9 +1878,9 @@ function renderTimelineLabels() {
       .join("");
     return;
   }
-  els.timelineLabels.innerHTML = ["Start", "Latest"]
-    .map((label) => `<span>${label}</span>`)
-    .join("");
+  // Undated journeys get no end labels: "Start" and "Latest" only restated which
+  // way a scrubber runs. Dated ones keep their years, which say something.
+  els.timelineLabels.innerHTML = "";
 }
 
 let descriptionExpanded = false;
@@ -1487,9 +1938,19 @@ const MIN_MOON_MILES = MOON_MILES * 0.01;
 const MIN_MARATHON_MILES = MARATHON_MILES * 5;
 // Rough coast-to-coast drive, Los Angeles to New York.
 const COAST_TO_COAST_MILES = 2790;
+// Latitude converts to distance at a near-constant rate; longitude does not,
+// which is why the tile headlines the north-south span rather than east-west.
+const MILES_PER_LATITUDE_DEGREE = 69.09;
 
-function formatDegrees(value, positive, negative) {
-  return `${Math.abs(value).toFixed(1)}° ${value >= 0 ? positive : negative}`;
+function formatDegrees(value, positive, negative, decimals = 1) {
+  return `${Math.abs(value).toFixed(decimals)}° ${value >= 0 ? positive : negative}`;
+}
+
+// One decimal collapses both ends of a short journey onto the same number:
+// Brassica spans 0.003° and read "47.7° N" for its northernmost *and*
+// southernmost stop.
+function degreeDecimals(span) {
+  return Math.abs(span) < 1 ? 3 : 1;
 }
 
 function journeyExtremes() {
@@ -1548,6 +2009,63 @@ function journeyExtremes() {
   };
 }
 
+// The four extremes in N, S, E, W order, collapsed to one entry per country: a
+// bug that stayed in one state is its own furthest point in every direction, and
+// four identical flags read as a rendering fault.
+function reachPlaces() {
+  const far = journeyExtremes();
+  const places = new Map();
+  for (const index of [far.northAt, far.southAt, far.eastAt, far.westAt]) {
+    const stop = journey[index];
+    if (!stop) continue;
+    const key = stop.country || stop.code;
+    if (!places.has(key)) {
+      places.set(key, {
+        name: stop.country || "an unnamed place",
+        flag: flagEmoji(stop.countryCode),
+        states: [],
+      });
+    }
+    // Grouped under the one flag rather than repeated per state: four extremes
+    // in four states would otherwise print the US flag four times, which costs a
+    // third of the row's height and reads worse than "US WA, CA, OR, ME".
+    const place = places.get(key);
+    if (stop.regionCode && !place.states.includes(stop.regionCode)) {
+      place.states.push(stop.regionCode);
+    }
+  }
+  // A single state distinguishes nothing — the flag already names the country
+  // and the dialog gives the exact cache. Abbreviations earn their space only
+  // when the extremes actually fall in different states.
+  for (const place of places.values()) {
+    if (place.states.length < 2) place.states = [];
+    place.short = place.states.length ? `${place.states.join(", ")} (USA)` : place.name;
+  }
+  return [...places.values()];
+}
+
+// Falls back wholesale rather than per place, so the row never mixes a flag with
+// a name when one country's code is missing.
+const SEPARATOR = '<span class="reach-sep"> · </span>';
+
+function reachValueHtml(places) {
+  if (!places.length) return "";
+  if (!flagsRender() || places.some((place) => !place.flag)) {
+    return `<span class="reach-text">${escapeHtml(places.map((place) => place.short).join(" · "))}</span>`;
+  }
+  return places
+    .map((place) => {
+      const flag = `<span class="reach-flag" role="img" aria-label="${escapeHtml(place.name)}">${place.flag}</span>`;
+      if (!place.states.length) return flag;
+      return `${flag}<span class="reach-state">${escapeHtml(place.states.join(", "))}</span>`;
+    })
+    // Separators only once an entry carries state text, where the boundary
+    // between "🇺🇸 WA, CA" and the next flag is otherwise ambiguous. In that
+    // case they are free — the row is 95px either way — whereas a " · " chain
+    // between bare flags wraps the common case from 87px to 95px for nothing.
+    .join(places.some((place) => place.states.length) ? SEPARATOR : "");
+}
+
 function journeyTotals() {
   const distinct = (values) => new Set(values.filter(Boolean)).size;
   const miles = journeyMeta.totalMiles ?? (cumulativeMiles.at(-1) ?? 0) * distanceScale;
@@ -1559,56 +2077,79 @@ function journeyTotals() {
   );
 
   const far = journeyExtremes();
+  const reaches = reachPlaces();
+  const comparisons = distanceComparisons(miles);
   const tiles = [
     {
       label: "Miles travelled",
       value: formatMiles(miles),
-      note:
-        miles < MIN_LAP_NOTE_MILES
-          ? null
-          : laps >= 1
-            ? `${laps.toFixed(1)}× around the world`
-            : `${Math.round(laps * 100)}% of the way round`,
+      // Short journeys clear no comparison floor, so there would be nothing to open.
+      open: comparisons.length ? "distance" : null,
     },
-    { label: "Countries", value: distinct(journey.map((stop) => stop.country)), places: "countries" },
-    { label: "Continents", value: distinct(journey.map((stop) => stop.continent)), places: "continents" },
+    { label: "Countries", value: distinct(journey.map((stop) => stop.country)), open: "countries" },
+    { label: "Continents", value: distinct(journey.map((stop) => stop.continent)), open: "continents" },
     {
       label: "Caches",
       value: uniqueCaches.toLocaleString("en-US"),
-      note: revisits ? `${revisits.toLocaleString("en-US")} return ${revisits === 1 ? "visit" : "visits"}` : null,
+      // With no repeats the dialog would only restate the tile.
+      open: revisits ? "caches" : null,
     },
-    { label: "Longest hop", value: `${formatMiles(far.longest)} mi`, hop: far.longestAt },
-    { label: "Typical hop", value: `${formatMiles(far.median)} mi`, note: "half its moves were shorter" },
-    { label: "Furthest north", value: formatDegrees(far.north, "N", "S"), stop: far.northAt },
-    { label: "Furthest south", value: formatDegrees(far.south, "N", "S"), stop: far.southAt },
-    { label: "Furthest east", value: formatDegrees(far.east, "E", "W"), stop: far.eastAt },
-    { label: "Furthest west", value: formatDegrees(far.west, "E", "W"), stop: far.westAt },
-    { label: "Hemispheres", value: far.hemispheres.join(" · ") || "—" },
+    {
+      label: "Longest hop",
+      value: `${formatMiles(far.longest)} mi`,
+      open: far.longestAt > 0 ? "hop" : null,
+    },
+    {
+      label: "Typical hop",
+      value: `${formatMiles(far.median)} mi`,
+      open: journey.length > 2 ? "hops" : null,
+    },
+    {
+      label: "Furthest reaches",
+      value: reaches.map((place) => place.short).join(" · "),
+      valueHtml: reachValueHtml(reaches),
+      open: "reach",
+    },
     {
       label: "Date line",
       value: far.dateLine,
-      note: far.dateLine ? `crossed ${far.dateLine === 1 ? "once" : `${far.dateLine} times`}` : null,
+      open: far.dateLine ? "dateline" : null,
+    },
+  ];
+  if (states) tiles.splice(2, 0, { label: "US states", value: states, open: "states" });
+  return tiles;
+}
+
+// Ways to feel a distance that a raw mileage figure does not convey. Each has a
+// floor below which the comparison is more confusing than flattering.
+function distanceComparisons(miles) {
+  const laps = miles / EQUATOR_MILES;
+  return [
+    {
+      name: "Around the world",
+      value: laps >= 1 ? `${laps.toFixed(1)}×` : `${Math.round(laps * 100)}%`,
+      sub: "the equator, 24,901 miles",
+      min: MIN_LAP_NOTE_MILES,
     },
     {
-      label: "Toward the Moon",
+      name: "Toward the Moon",
       value: `${(miles / MOON_MILES * 100).toFixed(0)}%`,
-      note: "of a one-way trip",
+      sub: "of a one-way trip, 238,900 miles",
       min: MIN_MOON_MILES,
     },
     {
-      label: "In marathons",
+      name: "In marathons",
       value: Math.round(miles / MARATHON_MILES).toLocaleString("en-US"),
+      sub: "26.2 miles each",
       min: MIN_MARATHON_MILES,
     },
     {
-      label: "Coast to coast",
+      name: "Coast to coast",
       value: `${(miles / COAST_TO_COAST_MILES).toFixed(0)}×`,
-      note: "LA to New York",
+      sub: "Los Angeles to New York, 2,790 miles",
       min: COAST_TO_COAST_MILES,
     },
-  ];
-  if (states) tiles.splice(2, 0, { label: "US states", value: states, places: "states" });
-  return tiles.filter((tile) => !tile.min || miles >= tile.min);
+  ].filter((row) => miles >= row.min);
 }
 
 function stopReferenceHtml(index) {
@@ -1621,41 +2162,46 @@ function stopReferenceHtml(index) {
   return `${code}${where ? ` · ${escapeHtml(where)}` : ""}`;
 }
 
-function statPlaceHtml(index) {
-  const reference = stopReferenceHtml(index);
-  return reference ? `<small>${reference}</small>` : "";
-}
-
-function statHopHtml(toIndex) {
-  const from = stopReferenceHtml(toIndex - 1);
-  const to = stopReferenceHtml(toIndex);
-  if (!from || !to) return statPlaceHtml(toIndex);
-  return `<small>${from}<span class="stat-arrow">→</span>${to}</small>`;
-}
-
 function renderJourneyStats() {
   els.journeyStats.innerHTML = journeyTotals()
     .filter((tile) => tile.value !== 0 && tile.value !== "0")
     .map((tile) => {
-      const detail = tile.hop !== undefined
-        ? statHopHtml(tile.hop)
-        : tile.stop !== undefined
-          ? statPlaceHtml(tile.stop)
-          : tile.note
-            ? `<small>${escapeHtml(tile.note)}</small>`
-            : "";
-      const interactive = tile.places
-        ? ` data-places="${tile.places}" role="button" tabindex="0"`
+      const detail = tile.note ? `<small>${escapeHtml(tile.note)}</small>` : "";
+      const interactive = tile.open
+        ? ` data-open="${tile.open}" role="button" tabindex="0"`
         : "";
       return `
         <div${interactive}>
           <dt>${escapeHtml(tile.label)}</dt>
-          <dd>${escapeHtml(String(tile.value))}${detail}</dd>
+          <dd>${tile.valueHtml ?? escapeHtml(String(tile.value))}${detail}</dd>
         </div>
       `;
     })
     .join("");
 }
+
+// A 1px tolerance: fractional scroll positions never settle exactly on the end.
+function updateStatsScroll() {
+  const row = els.journeyStats;
+  const remaining = row.scrollWidth - row.clientWidth - row.scrollLeft;
+  els.statsScroller.dataset.back = String(row.scrollLeft > 1);
+  els.statsScroller.dataset.next = String(remaining > 1);
+}
+
+function nudgeStats(direction) {
+  const row = els.journeyStats;
+  row.scrollBy({
+    left: direction * Math.max(140, Math.round(row.clientWidth * 0.8)),
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+  });
+}
+
+els.journeyStats.addEventListener("scroll", updateStatsScroll, { passive: true });
+els.statsNudgeBack.addEventListener("click", () => nudgeStats(-1));
+els.statsNudgeNext.addEventListener("click", () => nudgeStats(1));
+// Catches width changes the window resize event does not, such as the sidebar
+// column changing at a breakpoint.
+new ResizeObserver(updateStatsScroll).observe(els.journeyStats);
 
 function renderJourneyHeader() {
   // Imports are the only way to load a bug, so the pill would say nothing. The
@@ -1663,27 +2209,46 @@ function renderJourneyHeader() {
   els.statusPill.hidden = journeyMeta.source !== "sample";
   els.statusPill.innerHTML = "<i></i> Sample journey";
   els.statusPill.title = "Fictional demonstration data";
-  // The public reference is never in the KML itself; it only reaches us from the
-  // file name, so the title links only when we actually have one.
-  const code = journeyMeta.publicCode;
-  els.journeyTitleText.innerHTML = code
-    ? `<a class="journey-title-link" href="https://coord.info/${escapeHtml(code)}" target="_blank" rel="noreferrer" title="View ${escapeHtml(code)} on Geocaching">${escapeHtml(journeyMeta.title)}</a>`
-    : escapeHtml(journeyMeta.title);
+  els.journeyTitleText.textContent = journeyMeta.title;
   descriptionExpanded = false;
   renderDescription();
   renderJourneyStats();
+  els.journeyStats.scrollLeft = 0;
+  updateStatsScroll();
   refreshShareLink();
   els.stopCount.textContent = `${journey.length.toLocaleString("en-US")} stops`;
 }
 
+// "another" once a bug is open: it is accurate, and it signals that opening a
+// file replaces the journey on screen rather than adding to it.
+const OPEN_KML_LABELS = {
+  empty: "Open your bug\u2019s KML",
+  journey: "Open another bug\u2019s KML",
+};
+
+// One set of buttons, relocated rather than duplicated, so their ids stay unique
+// and every listener attached to them survives the move.
+function setAppState(state) {
+  els.appShell.dataset.state = state;
+  const slot = state === "empty" ? els.emptyActions : els.headerActions;
+  if (els.introActions.parentElement !== slot) slot.append(els.introActions);
+  const label = OPEN_KML_LABELS[state];
+  els.openKmlLabel.textContent = label;
+  // The label is display:none in the mobile header, so the accessible name has
+  // to be kept in step separately.
+  els.openKmlButton.setAttribute("aria-label", label);
+}
+
 function loadJourneyData(data, options = {}) {
   pause();
+  cancelMapLayoutTransition();
   journeyMeta = { ...data.meta };
   journey = data.stops.map(normalizeStop).filter((stop) =>
     Number.isFinite(stop.lat) && Number.isFinite(stop.lng),
   );
   if (!journey.length) throw new Error("No valid mapped stops were found.");
 
+  setAppState("journey");
   maxProgress = Math.max(0, (journey.length - 1) * 100);
   state.progress = 0;
   state.currentIndex = -1;
@@ -1693,6 +2258,7 @@ function loadJourneyData(data, options = {}) {
   state.logSignature = "";
   logExpandBefore = 0;
   logExpandAfter = 0;
+  logWindowStart = null;
   followActive = false;
   camera = null;
   appliedCamera = null;
@@ -1700,7 +2266,7 @@ function loadJourneyData(data, options = {}) {
   expandedCountry = null;
   expandedState = null;
   state.speed = 1;
-  els.speedButton.textContent = "1×";
+  renderSpeedControl();
   els.timeline.max = String(maxProgress || 100);
   els.timeline.disabled = maxProgress === 0;
   calculateJourneyMetrics();
@@ -1713,12 +2279,10 @@ function loadJourneyData(data, options = {}) {
   enrichCountries();
 
   if (options.announce) {
-    const distance = journeyMeta.totalMiles == null ? "" : ` · ${formatMiles(journeyMeta.totalMiles)} miles`;
-    const omissions = journeyMeta.hasDates ? "" : " Dates and log text are not included in KML.";
-    showToast(
-      `${journeyMeta.title}: ${journey.length.toLocaleString("en-US")} mapped stops${distance}.${omissions}`,
-      5200,
-    );
+    const stops = `${journey.length.toLocaleString("en-US")} ${journey.length === 1 ? "stop" : "stops"}`;
+    const distance =
+      journeyMeta.totalMiles == null ? "" : `, ${formatMiles(journeyMeta.totalMiles)} miles`;
+    showToast(`${journeyMeta.title} loaded — ${stops}${distance}`, 4200);
   }
 }
 
@@ -1788,6 +2352,9 @@ async function enrichCountries() {
         const match = stateCache.get(key);
         if (!match) return false;
         stop.region = match.name;
+        // Natural Earth stores admin-1 as "US-WA"; the postal half is what a
+        // 125px tile has room for.
+        stop.regionCode = match.iso?.startsWith("US-") ? match.iso.slice(3) : "";
         return true;
       });
       if (resolved === null) return;
@@ -1801,7 +2368,10 @@ async function enrichCountries() {
   renderStopCount();
   renderJourneyStats();
   buildStopList(state.currentIndex, true);
-  setProgress(state.progress, { force: true });
+  setProgress(state.progress, {
+    force: true,
+    preserveLogWindow: logWindowStart !== null,
+  });
 }
 
 // Places reached up to the current stop, in the order the bug first arrived —
@@ -1818,12 +2388,18 @@ function visitedPlaces(kind, index) {
     const entry = seen.get(name) ?? {
       name,
       flag: isState || isContinent ? "" : flagEmoji(stop.countryCode),
-      count: 0,
+      codes: new Set(),
     };
-    entry.count += 1;
+    entry.codes.add(stop.code);
     seen.set(name, entry);
   }
-  return [...seen.values()];
+  // Distinct caches rather than stops: a cache visited three times is one cache,
+  // a line the Caches dialog already draws between "Different caches" and
+  // "Mapped stops". Sorting is stable, so places tied on count stay in the order
+  // the bug reached them.
+  return [...seen.values()]
+    .map(({ name, flag, codes }) => ({ name, flag, count: codes.size }))
+    .sort((a, b) => b.count - a.count);
 }
 
 const PLACE_NOUNS = {
@@ -1832,44 +2408,226 @@ const PLACE_NOUNS = {
   continents: ["continent", "continents"],
 };
 
+// Rows carry either `sub` (plain text, escaped here) or `subHtml` (already-built
+// markup such as a linked cache reference), never both.
+function openDetail(eyebrow, title, rows) {
+  els.placesEyebrow.textContent = eyebrow;
+  els.placesTitle.textContent = title;
+  els.placesList.innerHTML = rows
+    .map((row) => {
+      const detail = row.subHtml ?? (row.sub ? escapeHtml(row.sub) : "");
+      const flag = row.flag ? `<span class="place-flag" aria-hidden="true">${row.flag}</span>` : "";
+      return `
+        <li>
+          <span class="places-name">${flag}${escapeHtml(row.name)}${detail ? `<small>${detail}</small>` : ""}</span>
+          <span class="places-count">${escapeHtml(row.value)}</span>
+        </li>
+      `;
+    })
+    .join("");
+  els.placesList.scrollTop = 0;
+  els.placesDialog.showModal();
+  // After showModal, not before: a closed dialog is display:none, so every
+  // measurement reads 0 and the list looks like it does not scroll.
+  updatePlacesScroll();
+}
+
 function openPlaces(kind, index = state.currentIndex) {
   const places = visitedPlaces(kind, index);
   const [noun, plural] = PLACE_NOUNS[kind] ?? PLACE_NOUNS.countries;
-  els.placesEyebrow.textContent = `In order of first visit`;
   const whole = index >= journey.length - 1;
-  els.placesTitle.textContent = `${places.length.toLocaleString("en-US")} ${places.length === 1 ? noun : plural}${whole ? "" : " so far"}`;
-  els.placesList.innerHTML = places
-    .map(
-      (place) => `
-        <li>
-          <span class="places-name">${place.flag ? `<span class="place-flag" aria-hidden="true">${place.flag}</span>` : ""}${escapeHtml(place.name)}</span>
-          <span class="places-count">${place.count.toLocaleString("en-US")}</span>
-        </li>
-      `,
-    )
-    .join("");
-  els.placesDialog.showModal();
+  openDetail(
+    "Most caches first",
+    `${places.length.toLocaleString("en-US")} ${places.length === 1 ? noun : plural}${whole ? "" : " so far"}`,
+    places.map((place) => ({
+      name: place.name,
+      flag: place.flag,
+      value: place.count.toLocaleString("en-US"),
+    })),
+  );
+}
+
+function openDistance() {
+  const miles = journeyMeta.totalMiles ?? (cumulativeMiles.at(-1) ?? 0) * distanceScale;
+  const comparisons = distanceComparisons(miles);
+  // A short journey can clear only one floor, so the count decides the wording.
+  openDetail(
+    comparisons.length === 1 ? "Another way to picture it" : "Other ways to picture it",
+    `${formatMiles(miles)} miles`,
+    comparisons,
+  );
+}
+
+const HEMISPHERE_NAMES = { N: "northern", S: "southern", E: "eastern", W: "western" };
+
+function openReach() {
+  const far = journeyExtremes();
+  const lat = degreeDecimals(far.north - far.south);
+  const lng = degreeDecimals(far.east - far.west);
+  const hemispheres = far.hemispheres;
+  const rows = [
+    { name: "Furthest north", value: formatDegrees(far.north, "N", "S", lat), subHtml: stopReferenceHtml(far.northAt) },
+    { name: "Furthest south", value: formatDegrees(far.south, "N", "S", lat), subHtml: stopReferenceHtml(far.southAt) },
+    { name: "Furthest east", value: formatDegrees(far.east, "E", "W", lng), subHtml: stopReferenceHtml(far.eastAt) },
+    { name: "Furthest west", value: formatDegrees(far.west, "E", "W", lng), subHtml: stopReferenceHtml(far.westAt) },
+  ];
+  if (hemispheres.length) {
+    rows.push({
+      name: "Hemispheres reached",
+      value: hemispheres.join(" · "),
+      sub: `${listPhrase(hemispheres.map((letter) => HEMISPHERE_NAMES[letter]))}`,
+    });
+  }
+  openDetail("How far it got in each direction", "Furthest reaches", rows);
+}
+
+function listPhrase(items) {
+  if (items.length < 2) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+function openHop() {
+  const far = journeyExtremes();
+  const to = far.longestAt;
+  const stopLabel = (index) => `Stop ${(index + 1).toLocaleString("en-US")}`;
+  openDetail("The longest single move", `${formatMiles(far.longest)} mi`, [
+    { name: "From", value: stopLabel(to - 1), subHtml: stopReferenceHtml(to - 1) },
+    { name: "To", value: stopLabel(to), subHtml: stopReferenceHtml(to) },
+  ]);
+}
+
+// Sub-mile hops round to "0.0 mi", which reads as no distance at all.
+function formatShortDistance(miles) {
+  if (miles < 0.1) return `${Math.round(miles * 5280).toLocaleString("en-US")} ft`;
+  return `${formatMiles(miles)} mi`;
+}
+
+function hopDistances() {
+  const hops = [];
+  for (let i = 1; i < journey.length; i += 1) {
+    hops.push(haversineMiles(journey[i - 1], journey[i]) * distanceScale);
+  }
+  return hops;
+}
+
+function openCaches() {
+  const counts = new Map();
+  for (const stop of journey) counts.set(stop.code, (counts.get(stop.code) ?? 0) + 1);
+  const repeats = [...counts.entries()].filter(([, times]) => times > 1).sort((a, b) => b[1] - a[1]);
+  const rows = [
+    { name: "Different caches", value: counts.size.toLocaleString("en-US") },
+    {
+      name: "Mapped stops",
+      value: journey.length.toLocaleString("en-US"),
+      sub: "every visit, repeats included",
+    },
+    { name: "Return visits", value: (journey.length - counts.size).toLocaleString("en-US") },
+    {
+      name: "Seen more than once",
+      value: repeats.length.toLocaleString("en-US"),
+      sub: repeats.length === 1 ? "cache" : "caches",
+    },
+  ];
+  if (repeats.length) {
+    const [code, times] = repeats[0];
+    rows.push({
+      name: "Most returned to",
+      value: `${times} visits`,
+      subHtml: stopReferenceHtml(journey.findIndex((stop) => stop.code === code)),
+    });
+  }
+  openDetail("Where it was dropped", `${counts.size.toLocaleString("en-US")} caches`, rows);
+}
+
+function openHops() {
+  const hops = hopDistances();
+  if (!hops.length) return;
+  const sorted = [...hops].sort((a, b) => a - b);
+  const median = sorted[sorted.length >> 1];
+  const mean = hops.reduce((total, hop) => total + hop, 0) / hops.length;
+  const count = (test) => hops.filter(test).length;
+  const rows = [
+    { name: "Typical move", value: `${formatMiles(median)} mi`, sub: "half of them were shorter" },
+    {
+      name: "Average move",
+      value: `${formatMiles(mean)} mi`,
+      // The gap between the two is the story: local shuffling, rare long flights.
+      // Needs an absolute floor as well as the ratio — Brassica's 0.3 mi average
+      // is twice its median and involves no flight of any kind.
+      sub: mean > median * 2 && mean > 25 ? "pulled up by a few long flights" : null,
+    },
+    { name: "Shortest move", value: formatShortDistance(sorted.find((hop) => hop > 0) ?? 0) },
+    { name: "Under a mile", value: count((hop) => hop < 1).toLocaleString("en-US") },
+  ];
+  for (const threshold of [100, 1000]) {
+    const far = count((hop) => hop > threshold);
+    if (far) {
+      rows.push({
+        name: `Over ${threshold.toLocaleString("en-US")} miles`,
+        value: far.toLocaleString("en-US"),
+      });
+    }
+  }
+  openDetail("How far it moved at a time", `${formatMiles(median)} mi typical`, rows);
+}
+
+function openDateLine() {
+  const rows = [];
+  for (let i = 1; i < journey.length; i += 1) {
+    if (Math.abs(journey[i].lng - journey[i - 1].lng) <= 180) continue;
+    rows.push({
+      name: `Crossing ${rows.length + 1}`,
+      value: `Stop ${(i + 1).toLocaleString("en-US")}`,
+      subHtml: `${stopReferenceHtml(i - 1)} → ${stopReferenceHtml(i)}`,
+    });
+  }
+  openDetail(
+    "Where it crossed the antimeridian",
+    `${rows.length} ${rows.length === 1 ? "crossing" : "crossings"}`,
+    rows,
+  );
+}
+
+function openStatDetail(kind) {
+  if (kind === "distance") return openDistance();
+  if (kind === "reach") return openReach();
+  if (kind === "hop") return openHop();
+  if (kind === "caches") return openCaches();
+  if (kind === "hops") return openHops();
+  if (kind === "dateline") return openDateLine();
+  return openPlaces(kind, journey.length - 1);
 }
 
 let shareLink = null;
+let shareBlockedReason = "";
 let shareToken = 0;
+
+// The button stays clickable while sharing is unavailable: a `disabled` button
+// fires no click at all, and the reason belongs in the toast rather than a hover
+// tooltip that no touch user can reach.
+function setShareState(link, reason) {
+  shareLink = link;
+  shareBlockedReason = reason;
+  els.shareButton.setAttribute("aria-disabled", link ? "false" : "true");
+  els.shareButton.setAttribute(
+    "aria-label",
+    link ? "Copy a link to this journey" : "This journey cannot be shared as a link",
+  );
+}
 
 // Prepared when a journey loads, so the button can say up front whether sharing
 // is possible instead of failing on click.
 async function refreshShareLink() {
   const token = (shareToken += 1);
-  shareLink = null;
-  els.shareButton.disabled = true;
-  els.shareButton.title = "Preparing a link…";
+  setShareState(null, "This bug’s link is still being prepared. Try again in a moment.");
 
   const link = await window.BugaboutLink?.encode(journey, journeyMeta);
   if (token !== shareToken) return;
 
-  shareLink = link ?? null;
-  els.shareButton.disabled = !shareLink;
-  els.shareButton.title = shareLink
-    ? "Share a link to this journey"
-    : `This journey has too many stops to fit in a link. Sharing works up to roughly ${SHARE_STOP_GUIDE} stops; this one has ${journey.length.toLocaleString("en-US")}.`;
+  setShareState(
+    link ?? null,
+    `Sharing only works for bugs with up to about ${SHARE_STOP_GUIDE} stops. This bug has ${journey.length.toLocaleString("en-US")} stops.`,
+  );
 }
 
 let toastTimer;
@@ -1921,7 +2679,7 @@ els.timeline.addEventListener("change", (event) => {
 els.speedButton.addEventListener("click", () => {
   const speeds = [1, 2, 4];
   state.speed = speeds[(speeds.indexOf(state.speed) + 1) % speeds.length];
-  els.speedButton.textContent = `${state.speed}×`;
+  renderSpeedControl();
   syncSound();
   showToast(`Playback speed: ${state.speed}×`);
 });
@@ -1939,9 +2697,19 @@ els.stopList.addEventListener("click", (event) => {
 
   const stopItem = event.target.closest(".stop-item");
   if (stopItem) {
+    const index = Number(stopItem.dataset.stop);
+    const topBefore = stopItem.getBoundingClientRect().top;
     pause();
     engageFollow();
-    setProgress(Number(stopItem.dataset.stop) * 100, { force: true, pan: true, scroll: false });
+    pinCurrentLogWindow();
+    prepareStopSelectionAnimation();
+    setProgress(index * 100, {
+      force: true,
+      pan: true,
+      preserveLogWindow: true,
+      scroll: false,
+    });
+    animateStopSelection(index, topBefore);
     return;
   }
 
@@ -1978,9 +2746,9 @@ els.logByPlace.addEventListener("click", () => setLogMode("place"));
 
 els.fitButton.addEventListener("click", () => {
   // Re-fits even when already selected, since the map may have been panned since.
-  setFollowEnabled(false);
-  disengageFollow();
-  fitRoute(true);
+  // transitionMapLayout measures before and after, so a re-fit that changes no
+  // geometry skips the animation and simply re-frames.
+  transitionToWholeRoute();
 });
 
 els.soundButton.addEventListener("click", (event) => {
@@ -2021,9 +2789,7 @@ els.zoomOutButton.addEventListener("click", () => {
 
 els.followButton.addEventListener("click", () => {
   if (followEnabled) return;
-  setFollowEnabled(true);
-  engageFollow();
-  setProgress(state.progress, { force: true });
+  transitionToFollow();
 });
 
 els.descriptionToggle.addEventListener("click", () => {
@@ -2036,7 +2802,10 @@ els.kmlInput.addEventListener("change", (event) => importKmlFile(event.target.fi
 
 els.shareButton.addEventListener("click", async () => {
   const link = shareLink;
-  if (!link) return;
+  if (!link) {
+    showToast(shareBlockedReason, 5200);
+    return;
+  }
 
   // Put the link in the address bar too, so what was copied and what the user is
   // looking at are the same thing.
@@ -2061,20 +2830,29 @@ els.shareButton.addEventListener("click", async () => {
 });
 
 els.journeyStats.addEventListener("click", (event) => {
-  const tile = event.target.closest("[data-places]");
-  if (tile) openPlaces(tile.dataset.places, journey.length - 1);
+  const tile = event.target.closest("[data-open]");
+  if (tile) openStatDetail(tile.dataset.open);
 });
 
 els.journeyStats.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
-  const tile = event.target.closest("[data-places]");
+  const tile = event.target.closest("[data-open]");
   if (!tile) return;
   event.preventDefault();
-  openPlaces(tile.dataset.places, journey.length - 1);
+  openStatDetail(tile.dataset.open);
 });
 
 els.countryStatCard.addEventListener("click", () => openPlaces("countries"));
 els.stateReadout.addEventListener("click", () => openPlaces("states"));
+// A 1px tolerance: fractional scroll positions never settle exactly on an end.
+function updatePlacesScroll() {
+  const list = els.placesList;
+  const remaining = list.scrollHeight - list.clientHeight - list.scrollTop;
+  els.placesScroller.dataset.top = String(list.scrollTop > 1);
+  els.placesScroller.dataset.bottom = String(remaining > 1);
+}
+
+els.placesList.addEventListener("scroll", updatePlacesScroll, { passive: true });
 els.closePlacesButton.addEventListener("click", () => els.placesDialog.close());
 els.placesDialog.addEventListener("click", (event) => {
   if (event.target === els.placesDialog) els.placesDialog.close();
@@ -2129,6 +2907,10 @@ async function loadDefaultJourney() {
   }
 }
 
+// TEMPORARY: opens on the empty state so it can be designed and the hand-off to
+// a loaded journey tested. Set back to false to restore the default journey.
+const START_EMPTY = true;
+
 async function bootstrap() {
   const shared = await window.BugaboutLink?.decode();
   if (shared) {
@@ -2140,6 +2922,10 @@ async function bootstrap() {
     }
   } else if (window.BugaboutLink?.hasFragment()) {
     showToast("That shared link could not be opened.");
+  }
+  if (START_EMPTY) {
+    setAppState("empty");
+    return;
   }
   await loadDefaultJourney();
 }

@@ -9,10 +9,12 @@
     />
     <title>Bugabout — Follow your bug about</title>
     <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=47" />
+    <link rel="stylesheet" href="./styles.css?v=85" />
   </head>
   <body>
-    <div class="app-shell">
+    <!-- Stated up front so the workspace is hidden at first paint. Bootstrap
+         sets it again, but only after awaiting the share-link decode. -->
+    <div class="app-shell" data-state="empty">
       <header class="site-header">
         <a class="brand" href="#" aria-label="Bugabout home">
           <span class="brand-mark" aria-hidden="true">
@@ -23,32 +25,41 @@
               <circle cx="25.5" cy="17.5" r="1.5" />
             </svg>
           </span>
-          <span>
-            <strong>Bugabout</strong>
-            <small>Follow your bug about.</small>
-          </span>
+          <strong>Bugabout</strong>
         </a>
+        <!-- Where the actions sit once a journey is loaded. They are moved here
+             from the empty state rather than duplicated, so the ids stay unique. -->
+        <div class="header-actions" id="headerActions"></div>
       </header>
 
       <main>
-        <section class="intro-bar" aria-label="Start a journey">
-          <div class="intro-copy">
-            <h1>Where has your bug been?</h1>
-          </div>
-          <div class="intro-actions">
-            <button class="primary-button" id="openKmlButton" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5" />
-              </svg>
-              Open KML
-            </button>
-            <button class="quiet-button" id="aboutButton" type="button">How it works</button>
+        <section class="empty-state" id="emptyState" aria-label="Start a journey">
+          <h1>Follow your bug about.</h1>
+          <div class="empty-actions" id="emptyActions">
+            <div class="intro-actions" id="introActions">
+              <button class="primary-button" id="openKmlButton" type="button" aria-label="Open your bug’s KML">
+                <!-- An open folder, not the arrow-out-of-a-tray upload glyph that
+                     was here: this button opens a local file and the app promises
+                     nothing is uploaded. -->
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 19V6.6A1.6 1.6 0 0 1 5.6 5h3.2l2 2.5h5.6A1.6 1.6 0 0 1 18 9.1v1.4" />
+                  <path d="M4 19h12.4a1.6 1.6 0 0 0 1.54-1.16l1.44-5A1.1 1.1 0 0 0 18.32 11H7.1a1.6 1.6 0 0 0-1.54 1.16L4 19Z" />
+                </svg>
+                <!-- One element, so the button's flex `gap` falls between the icon
+                     and the label instead of between every word. -->
+                <span class="button-label">Open your bug’s KML</span>
+              </button>
+              <button class="quiet-button" id="aboutButton" type="button" aria-label="Where’s my KML?">
+                <span class="button-icon" aria-hidden="true">?</span>
+                <span class="button-label">Where’s my KML?</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <section class="journey-workspace" aria-label="Bug journey">
-          <aside class="journey-sidebar">
-            <div class="journey-heading">
+          <div class="journey-heading">
+            <div class="journey-heading-top">
               <div>
                 <span class="status-pill" id="statusPill"><i></i> Sample journey</span>
                 <h2 id="journeyTitle"><span id="journeyTitleText">Scout’s grand bugabout</span></h2>
@@ -58,7 +69,6 @@
                 <button class="link-button" id="descriptionToggle" type="button" aria-expanded="false" hidden>
                   Read more
                 </button>
-                <dl class="journey-stats" id="journeyStats" aria-label="Journey totals"></dl>
               </div>
               <button class="icon-button" type="button" aria-label="Copy a link to this journey" id="shareButton">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -70,6 +80,22 @@
               </button>
             </div>
 
+            <!-- Outside the row that holds the share button, so the stats reach
+                 the full width of the card. -->
+            <div class="stats-scroller" id="statsScroller">
+              <dl class="journey-stats" id="journeyStats" aria-label="Journey totals"></dl>
+              <!-- Pointer convenience only: keyboard focus already scrolls a
+                   tile into view, so these are kept out of the tab order. -->
+              <button class="stats-nudge stats-nudge-back" id="statsNudgeBack" type="button" tabindex="-1" aria-hidden="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+              </button>
+              <button class="stats-nudge stats-nudge-next" id="statsNudgeNext" type="button" tabindex="-1" aria-hidden="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <aside class="journey-sidebar">
             <div class="stops-section">
               <div class="section-title-row">
                 <h3>Journey log</h3>
@@ -87,24 +113,26 @@
             <div id="map" aria-label="Animated journey map"></div>
 
             <div class="map-topbar">
-              <div class="map-actions">
-                <button class="map-button map-button-icon" id="zoomOutButton" type="button" aria-label="Zoom out" title="Zoom out">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
-                </button>
+              <!-- Zoom in first so the visual order (+ above −) and the tab
+                   order are the same; the stack itself is CSS. -->
+              <div class="map-actions map-zoom">
                 <button class="map-button map-button-icon" id="zoomInButton" type="button" aria-label="Zoom in" title="Zoom in">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                </button>
+                <button class="map-button map-button-icon" id="zoomOutButton" type="button" aria-label="Zoom out" title="Zoom out">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
                 </button>
               </div>
 
               <div class="map-actions">
                 <div class="map-toggle" role="group" aria-label="Camera">
-                  <button id="fitButton" type="button" aria-pressed="false" title="Show the whole route">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5m13 5h5v-5" /></svg>
-                    Whole route
-                  </button>
                   <button id="followButton" type="button" aria-pressed="true" title="Follow the bug">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3.4M12 18.6V22M22 12h-3.4M5.4 12H2" /></svg>
                     Follow bug
+                  </button>
+                  <button id="fitButton" type="button" aria-pressed="false" title="Show the whole route">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5m13 5h5v-5" /></svg>
+                    Whole route
                   </button>
                 </div>
                 <div class="map-sound">
@@ -123,13 +151,14 @@
                   <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
                 </button>
-                <button class="speed-button" id="speedButton" type="button" aria-label="Playback speed">1×</button>
               </div>
 
               <div class="player-main">
                 <div class="player-labels">
                   <div class="player-position">
-                    <span id="playerDate">December 14, 2021</span>
+                    <div class="player-meta">
+                      <span id="playerDate">December 14, 2021</span>
+                    </div>
                     <strong id="playerPlace">Washington, United States</strong>
                   </div>
                   <div class="player-readout" aria-label="Journey progress so far">
@@ -157,13 +186,8 @@
                   step="1"
                   aria-label="Journey timeline"
                 />
-                <div class="timeline-dates" id="timelineLabels">
-                  <span>2021</span>
-                  <span>2022</span>
-                  <span>2023</span>
-                  <span>2024</span>
-                  <span>2026</span>
-                </div>
+                <div class="timeline-dates" id="timelineLabels"></div>
+                <button class="speed-button" id="speedButton" type="button" aria-label="Playback speed: 1×">Speed 1×</button>
               </div>
             </div>
 
@@ -192,22 +216,32 @@
       <button class="dialog-close" id="closePlacesButton" type="button" aria-label="Close">×</button>
       <p class="eyebrow" id="placesEyebrow">Countries so far</p>
       <h2 id="placesTitle">Countries visited</h2>
-      <ol class="places-list" id="placesList"></ol>
+      <div class="places-scroller" id="placesScroller">
+        <ol class="places-list" id="placesList"></ol>
+      </div>
     </dialog>
 
     <dialog class="about-dialog" id="aboutDialog">
       <button class="dialog-close" id="closeAboutButton" type="button" aria-label="Close">×</button>
       <span class="dialog-bug" aria-hidden="true">●</span>
-      <p class="eyebrow">How Bugabout works</p>
-      <h2>Every little traveler leaves a very long trail.</h2>
+      <p class="eyebrow">Finding your KML</p>
+      <h2>Bring your bug’s journey to life.</h2>
       <ol class="dialog-steps">
-        <li><strong>Sign in</strong> at geocaching.com. The trackable page is public, but its map download is empty unless you are signed in.</li>
-        <li><strong>Open the trackable page</strong> for the bug you want to follow — the one whose web address contains its public <strong>TB</strong> code.</li>
-        <li><strong>Choose “View in Google Earth”</strong> on that page. It saves a <strong>.kml</strong> file to your downloads.</li>
-        <li><strong>Bring it here</strong> with <strong>Open KML</strong>, or drag the file anywhere onto this page.</li>
-        <li><strong>Press play</strong> and watch the journey unfold cache by cache.</li>
+        <li><strong>Go to a trackable page</strong> on <a href="https://www.geocaching.com" target="_blank" rel="noreferrer">geocaching.com</a>. Use the browser, not the app, and make sure you’re logged in.</li>
+        <li>
+          <strong>Choose “View in Google Earth”</strong> on the trackable’s page. This saves a <strong>.kml</strong> file to your downloads.
+          <img
+            class="dialog-shot"
+            src="./assets/google-earth-img.png?v=1"
+            width="608"
+            height="384"
+            alt="The Trackable Options menu on a geocaching.com trackable page. Below Add a Log Entry, Edit This Trackable, Upload an Image and Print Info Sheet, the last item reads View in Google Earth."
+          />
+        </li>
+        <li><strong>Click “Open your bug’s KML”</strong> and pick that file. Or just drag it anywhere onto this page.</li>
+        <li><strong>Press play</strong> on the map to watch your bug’s journey unfold!</li>
       </ol>
-      <p class="dialog-note">The file is read in your browser and never uploaded. KML holds ordered cache coordinates and total mileage only — no visit dates, log text, cache names, or photos — so Bugabout labels what is missing instead of inventing it. Countries are worked out from each stop’s coordinates. Never share the private tracking code printed on the bug itself; the public TB code is all Bugabout needs.</p>
+      <p class="dialog-note">The file is read in your browser and never uploaded. KML holds ordered cache coordinates and total mileage only, so Bugabout can’t show visit dates, log text, cache names, or photos. Countries and US states are worked out from each stop’s coordinates.</p>
     </dialog>
 
     <script src="./vendor/leaflet.js"></script>
@@ -215,7 +249,7 @@
     <script src="./country-lookup.js?v=5"></script>
     <script src="./journey-link.js?v=3"></script>
     <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=61"></script>
+    <script src="./app.js?v=93"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="./livereload.js"></script>

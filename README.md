@@ -22,9 +22,10 @@ Leaflet is vendored locally; the interactive basemap uses OpenStreetMap tiles lo
 - A camera that follows the bug during playback, zooming in for local wandering and out for ocean crossings
 - Play, pause, scrub, playback speed, and fit-route controls
 - Live miles and countries readouts in the player, beside the timeline that drives them
+- A full-width journey heading — title, description, and totals — above the map and log at every screen size
 - Journey story cards and stop-by-stop navigation
 - A journey log readable by time or by place, grouping caches under the countries and US states they sit in
-- Local KML import through **Open KML** or drag and drop, explained step by step in **How it works**
+- Local KML import through **Open your bug's KML** or drag and drop, explained step by step in **Where's my KML?**
 - Shareable links that replay a specific bug's route, encoded entirely in the URL — nothing is stored and nothing is uploaded
 - Large-journey rendering tuned for thousands of mapped stops
 - Countries derived from stop coordinates, plus US states where the bug travelled in the States
@@ -32,14 +33,16 @@ Leaflet is vendored locally; the interactive basemap uses OpenStreetMap tiles lo
 
 ## Import a real trackable
 
-1. Sign in at [geocaching.com](https://www.geocaching.com). The trackable page is public, but its map download comes back empty when you are signed out.
-2. Open the trackable's page — the one whose web address contains its public `TB` code.
-3. Choose **View in Google Earth** to download its `.kml` file.
-4. In Bugabout, choose **Open KML** and select the download, or drag the file onto the page.
+1. Go to a trackable page on [geocaching.com](https://www.geocaching.com). Use the browser, not the app, and make sure you are logged in — the page is public, but its map download comes back empty when you are signed out.
+2. Choose **View in Google Earth** on that page. It saves a `.kml` file to your downloads.
+3. In Bugabout, choose **Open your bug's KML** and pick that file, or drag it anywhere onto the page.
+4. Press play.
+
+Geocaching names that download with a GUID, such as `57c0a7d5-e0b2-4f87-84ab-3e334b1d2db7.kml`, and the trackable's `TB` reference appears nowhere in the file, so an import cannot know which trackable it came from. The fixtures in [`fixtures/`](./fixtures/) are renamed to their TB codes for legibility; that is this project's convention, not Geocaching's.
 
 The file is parsed locally in the browser and is not uploaded anywhere. Geocaching's KML includes an ordered list of mapped cache codes and coordinates, the trackable description, and total mileage. It does not include visit dates, log text, cache titles, photos, countries, or regions, so Bugabout omits those fields instead of inventing data.
 
-Country and, within the United States, state are the fields Bugabout fills in itself, because a stop's coordinates already determine them. Each stop is matched against vendored Natural Earth boundaries. The countries readout explains that provenance in its tooltip and the **How it works** dialog. Shoreline caches that fall just outside a coastline are snapped to the nearest country within 25 km. Non-US administrative regions remain unavailable.
+Country and, within the United States, state are the fields Bugabout fills in itself, because a stop's coordinates already determine them. Each stop is matched against vendored Natural Earth boundaries. The countries readout explains that provenance in its tooltip and the **How to import** dialog. Shoreline caches that fall just outside a coastline are snapped to the nearest country within 25 km. Non-US administrative regions remain unavailable.
 
 Two real public-reference fixtures are available for repeatable testing in [`fixtures/`](./fixtures/): a six-stop journey and a 2,472-stop journey.
 

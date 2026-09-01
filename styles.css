@@ -74,6 +74,15 @@ button {
   min-height: 100vh;
   margin: 0 auto;
   padding: 0 26px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .site-header {
@@ -81,7 +90,6 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
 }
 
 .brand {
@@ -130,19 +138,15 @@ button {
   letter-spacing: -0.6px;
 }
 
-.brand small {
-  display: block;
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-}
-
 .map-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.map-zoom {
+  flex-direction: column;
+  gap: 8px;
 }
 
 button {
@@ -152,6 +156,7 @@ button {
 
 .quiet-button {
   padding: 11px 15px;
+  white-space: nowrap;
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
@@ -202,17 +207,35 @@ button {
   stroke-linejoin: round;
 }
 
-.intro-bar {
-  min-height: 160px;
+/* Only shown before a journey is loaded, where it is the whole page. */
+.empty-state {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 36px;
+  justify-content: center;
+  gap: 30px;
+  text-align: center;
 }
 
-.intro-copy {
-  min-width: 300px;
+.header-actions:empty {
+  display: none;
 }
+
+/* Stacked in the empty state, where the column is centred and there is room;
+   the header keeps them side by side. `stretch` sizes the quiet button to the
+   primary, so its hover fill matches rather than hugging the words. */
+.empty-actions .intro-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.button-icon {
+  display: none;
+}
+
+
 
 .eyebrow {
   margin: 0 0 6px;
@@ -223,13 +246,51 @@ button {
   text-transform: uppercase;
 }
 
-.intro-copy h1 {
+.empty-state h1 {
+  max-width: 22ch;
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(34px, 4vw, 55px);
+  font-size: clamp(40px, 6.5vw, 76px);
   font-weight: 500;
   letter-spacing: -0.04em;
-  line-height: 1;
+  line-height: 1.02;
+}
+
+/* Entry and exit both animate; `display` is discrete, so it flips at the start
+   coming in and waits for the end going out. */
+.empty-state,
+.journey-workspace {
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease,
+    display 300ms allow-discrete;
+}
+
+.app-shell[data-state="journey"] .empty-state {
+  display: none;
+  opacity: 0;
+  transform: translateY(-14px);
+}
+
+/* `:not(journey)` rather than `[data-state="empty"]`, so an unset attribute hides
+   the workspace too: it carries placeholder markup, and any window where neither
+   rule matched showed the sample journey's title before the state was applied.
+   No transform on the workspace either — it establishes a containing block, which
+   moves the map's absolutely positioned controls and disturbs Leaflet. */
+.app-shell:not([data-state="journey"]) .journey-workspace {
+  display: none;
+  opacity: 0;
+}
+
+@starting-style {
+  .app-shell[data-state="empty"] .empty-state {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+
+  .app-shell[data-state="journey"] .journey-workspace {
+    opacity: 0;
+  }
 }
 
 .intro-actions {
@@ -240,10 +301,14 @@ button {
 }
 
 .journey-workspace {
-  height: calc(100vh - 270px);
-  min-height: 450px;
   display: grid;
   grid-template-columns: 390px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: auto minmax(360px, 1fr);
+  grid-template-areas:
+    "heading heading"
+    "sidebar map";
   overflow: hidden;
   border: 1px solid rgba(24, 50, 44, 0.14);
   border-radius: var(--radius-lg);
@@ -252,6 +317,7 @@ button {
 }
 
 .journey-sidebar {
+  grid-area: sidebar;
   min-width: 0;
   overflow-y: auto;
   padding: 26px 24px 30px;
@@ -264,10 +330,29 @@ button {
 }
 
 .journey-heading {
+  grid-area: heading;
+  padding: 24px 26px 22px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(rgba(255, 253, 247, 0.96), rgba(255, 253, 247, 0.96)),
+    repeating-linear-gradient(0deg, transparent 0 25px, rgba(24, 50, 44, 0.04) 26px);
+}
+
+.journey-heading-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+}
+
+.journey-heading-top > div:first-child {
+  min-width: 0;
+}
+
+/* Full width would otherwise give the prose an unreadable measure. */
+.journey-heading h2,
+.journey-heading .description {
+  max-width: 74ch;
 }
 
 .status-pill {
@@ -357,34 +442,183 @@ button {
 
 .journey-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(125px, 1fr);
   gap: 1px;
-  margin: 20px 0 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(24, 50, 44, 0.25) transparent;
+}
+
+/* macOS overlay scrollbars vanish when idle, so a scrollable row had no resting
+   affordance at all. The fade shows how much is hidden; the chevron makes it
+   actionable for a mouse with no horizontal wheel. */
+.stats-scroller {
+  position: relative;
+  margin: 20px 0 0;
+}
+
+.stats-scroller::before,
+.stats-scroller::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 1px;
+  bottom: 1px;
+  width: 52px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.stats-scroller::before {
+  left: 1px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: linear-gradient(to right, var(--panel) 18%, rgba(255, 253, 247, 0));
+}
+
+.stats-scroller::after {
+  right: 1px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: linear-gradient(to left, var(--panel) 18%, rgba(255, 253, 247, 0));
+}
+
+.stats-scroller[data-back="true"]::before,
+.stats-scroller[data-next="true"]::after {
+  opacity: 1;
+}
+
+.stats-nudge {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  translate: 0 -50%;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: 0 3px 10px rgba(24, 50, 44, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, background 140ms ease;
+}
+
+.stats-nudge svg {
+  width: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stats-nudge:hover {
+  background: var(--mint);
+}
+
+.stats-nudge-back { left: 5px; }
+.stats-nudge-next { right: 5px; }
+
+.stats-scroller[data-back="true"] .stats-nudge-back,
+.stats-scroller[data-next="true"] .stats-nudge-next {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .journey-stats > div {
   padding: 11px 12px 12px;
   background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 1px var(--line);
+  scroll-snap-align: start;
 }
 
-.journey-stats > div[data-places] {
+/* Openable tiles are tinted at rest, not only on hover: hover states are
+   invisible until the pointer is already there, and absent on touch. */
+.journey-stats > div[data-open] {
   cursor: pointer;
+  background: color-mix(in srgb, var(--mint) 50%, #fff);
   transition: background 140ms ease;
 }
 
-.journey-stats > div[data-places]:hover,
-.journey-stats > div[data-places]:focus-visible {
-  background: var(--mint);
-  outline: none;
+.journey-stats > div[data-open] dt {
+  color: var(--green-dark);
 }
 
-.journey-stats > div[data-places] dt::after {
-  content: " ›";
-  color: var(--green-dark);
+.journey-stats > div[data-open] dd {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--green) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* inline-block keeps the interactive tile's underline from being drawn through
+   the flags, where it reads as a rendering fault rather than a link. */
+.reach-flag {
+  display: inline-block;
+  margin-right: 4px;
+  line-height: 1;
+}
+
+.reach-sep {
+  color: var(--muted);
+}
+
+.reach-state {
+  margin-left: 5px;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+/* The flags are inline-block and cannot carry the underline, so an underlined
+   state abbreviation beside a bare flag would look like a mistake. Tint, green
+   label and chevron still mark this tile as openable. */
+.journey-stats > div[data-open="reach"] dd {
+  text-decoration: none;
+}
+
+/* Names need to sit well below the 20px serif the numeric tiles use, or the row
+   grows from 87px to 131px to fit them. */
+.reach-text {
+  display: block;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+/* The underline marks the value, not the note that follows it. */
+.journey-stats > div[data-open] dd small {
+  text-decoration: none;
+}
+
+.journey-stats > div[data-open]:hover,
+.journey-stats > div[data-open]:focus-visible {
+  background: var(--mint);
+}
+
+.journey-stats > div[data-open]:hover dd {
+  text-decoration-color: var(--green);
+}
+
+.journey-stats > div[data-open]:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+}
+
+.journey-stats > div[data-open] dt::after {
+  /* Non-breaking: a plain space let the chevron wrap onto a line of its own
+     under a two-word label. */
+  content: "\00a0›";
+  color: var(--green);
+  font-weight: 900;
 }
 
 .journey-stats dt {
@@ -402,12 +636,6 @@ button {
   font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-}
-
-.stat-arrow {
-  display: block;
-  margin: 1px 0;
-  color: var(--muted);
 }
 
 .journey-stats a {
@@ -447,24 +675,18 @@ button {
   transform: rotate(-4deg);
 }
 
-.icon-button:disabled {
+.icon-button:disabled,
+.icon-button[aria-disabled="true"] {
   cursor: not-allowed;
-  opacity: 0.4;
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: color-mix(in srgb, var(--ink) 30%, transparent);
 }
 
-.icon-button:disabled:hover {
-  background: transparent;
+.icon-button:disabled:hover,
+.icon-button[aria-disabled="true"]:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   transform: none;
-}
-
-.journey-title-link {
-  color: inherit;
-  text-decoration-color: rgba(24, 50, 44, 0.28);
-  text-underline-offset: 4px;
-}
-
-.journey-title-link:hover {
-  text-decoration-color: var(--green-dark);
 }
 
 .icon-button svg {
@@ -477,7 +699,7 @@ button {
 }
 
 .stops-section {
-  margin-top: 26px;
+  margin-top: 0;
 }
 
 .section-title-row {
@@ -648,19 +870,29 @@ button {
   grid-template-columns: 30px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 8px calc(7px + var(--card-bleed)) 8px var(--card-bleed);
+  padding: 7px calc(7px + var(--card-bleed)) 7px var(--card-bleed);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   text-align: left;
   background: transparent;
   transition: background 140ms ease;
 }
 
+/* Only direct clicks get the size transition. Playback still changes rows
+   instantly, so a fast journey never turns the log into a stack of animations. */
+.stop-list.selecting-stop .stop-button {
+  transition:
+    background 160ms ease,
+    border-color 180ms ease,
+    padding 220ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
 .stop-button:hover {
   background: rgba(31, 104, 79, 0.075);
 }
 
-/* The selected row is the story card. The log window opens on the current stop,
-   so it sits at the top with the next stop connected below it. */
+/* The selected row is the story card. Playback keeps it at the top of its moving
+   window; clicking a visible row changes the card in place. */
 .stop-item.active .stop-button {
   align-items: start;
   padding: 13px calc(12px + var(--card-bleed)) 14px var(--card-bleed);
@@ -683,6 +915,13 @@ button {
   letter-spacing: -0.02em;
 }
 
+.stop-list.selecting-stop .stop-name strong {
+  transition:
+    margin-bottom 220ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    font-size 220ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    letter-spacing 220ms ease;
+}
+
 .stop-item.active .stop-name small {
   color: var(--coral-dark);
   font-weight: 800;
@@ -693,12 +932,35 @@ button {
 }
 
 .stop-story {
-  display: none;
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  visibility: hidden;
 }
 
 .stop-item.active .stop-story {
-  display: block;
+  grid-template-rows: 1fr;
   margin-top: 7px;
+  opacity: 1;
+  visibility: visible;
+}
+
+.stop-story-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stop-list.selecting-stop .stop-story {
+  transition:
+    grid-template-rows 220ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    margin-top 220ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    opacity 140ms ease,
+    visibility 0s linear 220ms;
+}
+
+.stop-list.selecting-stop .stop-item.active .stop-story {
+  transition-delay: 0s;
 }
 
 .stop-kicker {
@@ -859,6 +1121,7 @@ button {
 }
 
 .map-stage {
+  grid-area: map;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -902,7 +1165,9 @@ button {
   right: 18px;
   left: 18px;
   display: flex;
-  align-items: center;
+  /* flex-start, not center: the zoom stack is twice as tall as the controls
+     opposite it, and centring would push those down to meet its middle. */
+  align-items: flex-start;
   justify-content: space-between;
   pointer-events: none;
 }
@@ -1196,17 +1461,26 @@ button {
   white-space: nowrap;
 }
 
-.player-position > span,
 .player-position > strong {
   display: block;
 }
 
-.player-position > span {
+.player-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
   margin-bottom: 2px;
+}
+
+.player-meta > span {
+  overflow: hidden;
   color: var(--muted);
   font-size: 9px;
   font-weight: 750;
   letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player-position strong {
@@ -1234,13 +1508,31 @@ button {
 }
 
 .speed-button {
-  padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 20px;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  border-radius: 6px;
+  color: var(--green);
+  background: transparent;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.speed-button::after {
+  content: "›";
+  font-size: 12px;
+  line-height: 1;
+}
+
+.speed-button:hover {
   color: var(--green-dark);
-  background: var(--mint);
-  font-size: 10px;
-  font-weight: 900;
+  background: rgba(31, 104, 79, 0.08);
 }
 
 .timeline {
@@ -1284,6 +1576,21 @@ button {
   color: #87908c;
   font-size: 8px;
   font-weight: 700;
+}
+
+/* Undated journeys render no labels at all, so the row must not hold space. */
+.timeline-dates:empty {
+  display: none;
+}
+
+/* Under the scrubber it is a control in its own right rather than a caption
+   beside the date, so it carries a little more weight. */
+.player-main > .speed-button {
+  height: 22px;
+  margin-top: 7px;
+  /* No horizontal padding: the S of "Speed" lines up with the scrubber. */
+  padding: 0;
+  font-size: 10px;
 }
 
 .bug-marker-wrap {
@@ -1538,16 +1845,94 @@ button {
   color: var(--ink);
 }
 
+.dialog-steps a {
+  color: var(--coral-dark);
+  text-decoration-color: color-mix(in srgb, var(--coral-dark) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.dialog-steps a:hover {
+  text-decoration-color: currentColor;
+}
+
+.dialog-shot {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  margin: 11px 0 3px;
+  border: 1px solid rgba(24, 50, 44, 0.16);
+  border-radius: 11px;
+  background: #fff;
+}
+
 .places-dialog {
   width: min(390px, calc(100vw - 34px));
+}
+
+.places-scroller {
+  position: relative;
+}
+
+/* Overlays, not backgrounds: a background paints behind the rows and can only
+   ever cast a shadow under them, which read as grey rather than as the text
+   softening away. These sit above the rows and are the panel's own colour.
+   Inset from the right so the scrollbar is never faded out along with them. */
+.places-scroller::before,
+.places-scroller::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 11px;
+  height: 34px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 170ms ease;
+}
+
+.places-scroller::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--panel) 12%, rgba(255, 253, 247, 0));
+}
+
+.places-scroller::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--panel) 12%, rgba(255, 253, 247, 0));
+}
+
+.places-scroller[data-top="true"]::before,
+.places-scroller[data-bottom="true"]::after {
+  opacity: 1;
 }
 
 .places-list {
   max-height: min(52vh, 420px);
   margin: 0;
-  padding: 0;
+  /* Keeps the rows and their rules clear of the scrollbar. */
+  padding: 0 14px 0 0;
   overflow-y: auto;
   list-style: none;
+}
+
+/* macOS overlay scrollbars disappear when idle. A slim persistent one says how
+   much is left, which the shadow alone cannot.
+   Deliberately no `scrollbar-width` / `scrollbar-color` here: Chrome ignores
+   every ::-webkit-scrollbar rule when either standard property is set, so
+   asking for a thin scrollbar was silently cancelling the visible one. Firefox
+   falls back to its own scrollbar, which it already shows persistently. */
+.places-list::-webkit-scrollbar {
+  width: 9px;
+}
+
+.places-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.places-list::-webkit-scrollbar-thumb {
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  background: rgba(24, 50, 44, 0.3);
 }
 
 .places-list li {
@@ -1570,6 +1955,32 @@ button {
   font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.places-name:has(small) {
+  overflow: visible;
+  white-space: normal;
+}
+
+.places-name small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-family: Inter, ui-sans-serif, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.places-name small a {
+  color: var(--coral-dark);
+  text-decoration-color: rgba(215, 85, 63, 0.45);
+  text-underline-offset: 2px;
+}
+
+.places-list li:has(small) {
+  align-items: flex-start;
+  padding: 11px 2px;
 }
 
 .places-count {
@@ -1620,13 +2031,25 @@ button {
   70%, 100% { opacity: 0; transform: scale(1.3); }
 }
 
+/* A definite height, not min-height: `1fr` inside the workspace can only resolve
+   against a container that is actually constrained. With min-height the shell
+   simply grew to fit its content and the map row never shrank. If the map hits
+   its 360px floor the shell overflows and the page scrolls again, which is the
+   right fallback. Desktop only — mobile stacks and is meant to scroll. */
+@media (min-width: 781px) {
+  .app-shell {
+    height: 100vh;
+    /* Floor it. `.journey-workspace` clips (it needs overflow:hidden for its
+       rounded corners), so once the map row hits its 360px minimum a shorter
+       window would cut the player card off with no way to scroll to it. Below
+       this height the shell stops shrinking and the page scrolls instead. */
+    min-height: 780px;
+  }
+}
+
 @media (max-width: 1020px) {
   .app-shell {
     padding: 0 18px 20px;
-  }
-
-  .intro-bar {
-    min-height: 182px;
   }
 
   .journey-workspace {
@@ -1643,22 +2066,55 @@ button {
     height: 72px;
   }
 
-  .brand small {
+  /* In the header the two actions become round icon buttons, which leaves room
+     for the wordmark and its tagline. Their labels move to aria-label, and the
+     empty state — which has the row to itself — keeps full-width text buttons. */
+  .header-actions .primary-button,
+  .header-actions .quiet-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .header-actions .button-label {
     display: none;
   }
 
-  .intro-bar {
-    min-height: 215px;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
-    gap: 22px;
+  .header-actions .quiet-button {
+    border: 1px solid var(--line);
+  }
+
+  .header-actions .quiet-button .button-icon {
+    display: inline-flex;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .site-header {
+    gap: 12px;
+  }
+
+  .empty-state {
+    gap: 24px;
   }
 
   .journey-workspace {
-    height: auto;
-    min-height: 0;
-    grid-template-columns: 1fr;
+    flex: 0 0 auto;
+    /* minmax(0, …), not 1fr: a bare 1fr track takes its minimum from the
+       content's min-content width, so the scrolling stats row widened the whole
+       card past the viewport instead of scrolling inside it. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "heading"
+      "map"
+      "stops";
     overflow: visible;
   }
 
@@ -1667,34 +2123,68 @@ button {
     min-height: 520px;
   }
 
+  /* Whole route is an overview on small screens, so its map keeps a responsive
+     shape and the player gets its own space below. Follow bug remains the tall,
+     cinematic map with an overlaid player. */
+  .map-stage.whole-route-view {
+    height: auto;
+    min-height: 0;
+    background: var(--panel);
+  }
+
+  .map-stage.whole-route-view #map {
+    height: auto;
+    aspect-ratio: 8 / 5;
+  }
+
+  .map-stage.whole-route-view .player-card {
+    position: relative;
+    inset: auto;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  /* JS animates the stage from the overview's content height to the follow
+     pane's fixed height. Temporarily releasing the minimum lets that first
+     keyframe be smaller than 520px instead of snapping to the minimum. */
+  .map-stage.map-layout-transitioning {
+    min-height: 0;
+  }
+
+  .map-stage.map-layout-transitioning,
+  .map-stage.map-layout-transitioning #map {
+    will-change: height;
+  }
+
   .journey-sidebar {
     display: contents;
   }
 
-  /* display: contents drops the sidebar's own box, so its padding and paper
-     texture move onto the two pieces that remain. */
-  .journey-heading,
+  /* display: contents drops the sidebar's own box, so the log carries the
+     padding and paper texture itself. */
   .stops-section {
+    grid-area: stops;
     padding: 22px 17px 24px;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 20px 20px;
     background:
       linear-gradient(rgba(255, 253, 247, 0.96), rgba(255, 253, 247, 0.96)),
       repeating-linear-gradient(0deg, transparent 0 25px, rgba(24, 50, 44, 0.04) 26px);
   }
 
   .journey-heading {
-    grid-row: 1;
+    padding: 22px 17px 24px;
+    border-bottom: 0;
     border-radius: 20px 20px 0 0;
   }
 
-  .map-stage {
-    grid-row: 2;
-  }
-
-  .stops-section {
-    grid-row: 3;
-    margin-top: 0;
-    border-top: 1px solid var(--line);
-    border-radius: 0 0 20px 20px;
+  .journey-stats {
+    grid-auto-columns: minmax(132px, 1fr);
   }
 }
 
@@ -1703,16 +2193,19 @@ button {
     padding: 0 11px 14px;
   }
 
-  .intro-copy h1 {
-    font-size: 37px;
+  .empty-state h1 {
+    font-size: 40px;
   }
 
-  .intro-actions {
+  /* Stacked full-width in the empty state, where there is room; the header keeps
+     them side by side. */
+  .empty-actions .intro-actions {
+    align-self: stretch;
     align-items: stretch;
     flex-direction: column;
   }
 
-  .intro-actions .primary-button {
+  .empty-actions .intro-actions .primary-button {
     justify-content: center;
   }
 
@@ -1758,6 +2251,10 @@ button {
     padding: 12px;
   }
 
+  .map-stage.whole-route-view .player-card {
+    margin: 0;
+  }
+
   .play-button {
     width: 46px;
     height: 46px;
@@ -1766,11 +2263,6 @@ button {
   .player-labels {
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  .player-transport {
-    flex-direction: column;
-    gap: 7px;
   }
 
   .player-position > strong {
