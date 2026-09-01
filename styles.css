@@ -2293,6 +2293,22 @@ button {
   color: var(--ink);
 }
 
+/* The three facts the dialog exists to deliver, set apart from the definition
+   above them so they can be scanned rather than read. */
+.product-dialog-points {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.product-dialog-points li::marker {
+  color: var(--coral);
+}
+
 .product-dialog .dialog-note {
   margin-top: 20px;
 }

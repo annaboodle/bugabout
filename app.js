@@ -2930,7 +2930,6 @@ els.soundMenu.addEventListener("click", (event) => {
   syncSound();
   renderSoundMenu();
   setSoundMenuOpen(false);
-
 });
 
 document.addEventListener("click", (event) => {
