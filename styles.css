@@ -26,6 +26,10 @@
   --route-preview: #6b6f78;
   /* Hot end of the stop-marker wake; it cools to --green over the trail window. */
   --stop-hot: var(--coral);
+  /* Where the bug is now, in both places it is shown: the map marker and the
+     active row's pin. */
+  --bug-mark: var(--yellow);
+  --stop-place: var(--coral-dark);
   --line: rgb(from var(--ink) r g b / 0.13);
   --shadow: 0 18px 50px rgb(from var(--ink) r g b / 0.12);
   --radius-lg: 28px;
@@ -264,6 +268,12 @@ button {
      Keeping green here is the point of this variant; only the wake turns warm,
      and it starts yellow rather than the shared coral. */
   --stop-hot: #f5cd2e;
+  /* The bug wore the same yellow as the wake it leaves — 33 RGB units apart,
+     so it sank into its own trail. The poppy carries it instead, and the
+     active row's place name drops back to plain text rather than adding a
+     third accent to a card that already has a pink pin and a pink border. */
+  --bug-mark: var(--coral);
+  --stop-place: var(--muted);
   --texture: radial-gradient(circle at 20% 30%, rgb(from var(--green) r g b / 0.07), transparent 12rem),
     radial-gradient(circle at 75% 70%, rgb(from var(--green) r g b / 0.05), transparent 14rem);
   --glow: radial-gradient(circle at 88% 0%, rgb(from var(--yellow) r g b / 0.2), transparent 26rem);
@@ -1247,7 +1257,7 @@ button {
 }
 
 .stop-item.active .stop-name small {
-  color: var(--coral-dark);
+  color: var(--stop-place);
   font-weight: 800;
 }
 
@@ -1368,8 +1378,8 @@ button {
 
 .stop-item.active .stop-marker {
   color: var(--ink);
-  background: var(--yellow);
-  box-shadow: 0 0 0 3px rgb(from var(--yellow) r g b / 0.28);
+  background: var(--bug-mark);
+  box-shadow: 0 0 0 3px rgb(from var(--bug-mark) r g b / 0.28);
 }
 
 .stop-name strong,
@@ -1967,7 +1977,7 @@ button {
   place-items: center;
   border: 4px solid var(--panel);
   border-radius: 50%;
-  background: var(--yellow);
+  background: var(--bug-mark);
   box-shadow: 0 8px 24px rgb(from var(--ink) r g b / 0.28);
   font-size: 22px;
   transform-origin: center;
