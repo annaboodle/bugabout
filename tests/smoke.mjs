@@ -85,14 +85,13 @@ await (async function runBrowserSmokeTests() {
       );
       equal(parsed.meta.description, "", "description");
       equal(parsed.stops.length, 1, "stop count");
-      equal(parsed.meta.publicCode, "TBTEST", "public code");
+      equal(parsed.meta.publicCode, undefined, "no public code is derived from the file name");
     });
 
     await test("TBBDVQG fixture parses with its official totals", async () => {
       small = await fixture("TBBDVQG");
       equal(small.stops.length, 6, "stop count");
       near(small.meta.totalMiles, 1.671, 0.001, "official miles");
-      equal(small.meta.publicCode, "TBBDVQG", "public code");
     });
 
     await test("TBA5TD9 fixture parses with antimeridian crossings", async () => {
@@ -127,7 +126,7 @@ await (async function runBrowserSmokeTests() {
       const decoded = await window.BugaboutLink.decode();
       assert(decoded, "share link did not decode");
       equal(decoded.stops.length, small.stops.length, "decoded stop count");
-      equal(decoded.meta.publicCode, "TBBDVQG", "decoded public code");
+      equal(decoded.meta.publicCode, undefined, "no public code survives a round trip");
       near(decoded.meta.totalMiles, Math.round(small.meta.totalMiles * 100) / 100, 0.001, "decoded official miles");
       near(decoded.stops[0].lat, small.stops[0].lat, 0.0001, "decoded latitude");
       near(decoded.stops[0].lng, small.stops[0].lng, 0.0001, "decoded longitude");

@@ -47,10 +47,6 @@
     };
   }
 
-  function parsePublicCode(fileName) {
-    return fileName.toUpperCase().match(/\bTB[A-Z0-9]+\b/)?.[0] ?? null;
-  }
-
   function parseMiles(documentElement, description) {
     const folderNames = [...documentElement.getElementsByTagNameNS("*", "Folder")].map((folder) =>
       directChildText(folder, "name"),
@@ -128,7 +124,6 @@
       meta: {
         source: "kml",
         fileName,
-        publicCode: parsePublicCode(fileName),
         title,
         description,
         totalMiles,

@@ -162,7 +162,6 @@ const sampleData = {
     source: "sample",
     title: "Scout’s grand bugabout",
     description: "From a rainy Seattle sidewalk to the other side of the world—and back again.",
-    publicCode: null,
     fileName: null,
     totalMiles: null,
     hasDates: true,
@@ -2955,8 +2954,10 @@ async function loadDefaultJourney() {
   }
 }
 
-// TEMPORARY: opens on the empty state so it can be designed and the hand-off to
-// a loaded journey tested. Set back to false to restore the default journey.
+// Bugabout opens empty and waits for a file. Loading someone else's bug on
+// arrival made the first screen look like the product was about that bug.
+// Set false to boot straight into DEFAULT_JOURNEY instead, which is useful when
+// working on the journey view itself.
 const START_EMPTY = true;
 
 async function bootstrap() {

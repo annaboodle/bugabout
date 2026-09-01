@@ -101,7 +101,6 @@
       previousLat = lat;
       previousLng = lng;
     }
-    writeText(bytes, meta.publicCode ?? "");
     return Uint8Array.from(bytes);
   }
 
@@ -169,14 +168,12 @@
         });
       }
 
-      // Older links end after the coordinates; this field is optional.
-      const publicCode = reader.done ? "" : reader.text();
-
+      // Links made before this field was dropped carry a trailing public code.
+      // Nothing reads it; the remaining bytes are simply left unread.
       return {
         meta: {
           source: "shared",
           fileName: null,
-          publicCode: publicCode || null,
           title: title || "A shared bugabout",
           description,
           totalMiles: totalMiles > 0 ? totalMiles : null,
