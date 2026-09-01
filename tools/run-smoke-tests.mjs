@@ -216,7 +216,13 @@ if (!browser) {
     client = await connect(await targetUrl(browserDebuggerUrl, url));
     await client.call("Runtime.enable");
     await awaitResult(client);
-    console.log("Bugabout: 7 browser smoke tests passed.");
+    // Read the count off the page rather than hardcoding it, which reported
+    // "7 passed" no matter how many tests had actually run.
+    const summary = await evaluate(
+      client,
+      "document.querySelector('#summary')?.textContent || 'browser smoke tests passed'",
+    );
+    console.log(`Bugabout: ${summary}.`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

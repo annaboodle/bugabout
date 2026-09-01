@@ -94,6 +94,22 @@ await (async function runBrowserSmokeTests() {
       near(small.meta.totalMiles, 1.671, 0.001, "official miles");
     });
 
+    // Few stops, enormous distances. This is the shape that broke the follow
+    // camera: its fixed 45-stop lookahead spanned the entire route at every
+    // index, so the frame never changed and the map never moved.
+    await test("TBAR286 fixture is sparse but globe-spanning", async () => {
+      const sparse = await fixture("TBAR286");
+      equal(sparse.stops.length, 18, "stop count");
+      near(sparse.meta.totalMiles, 18972.448, 0.001, "official miles");
+      const longitudes = sparse.stops.map((stop) => stop.lng);
+      const span = Math.max(...longitudes) - Math.min(...longitudes);
+      assert(span > 150, `expected a globe-spanning route, got ${span.toFixed(1)} degrees`);
+      assert(
+        sparse.stops.length < 45,
+        "the point of this fixture is that it has fewer stops than the camera lookahead",
+      );
+    });
+
     await test("TBA5TD9 fixture parses with antimeridian crossings", async () => {
       large = await fixture("TBA5TD9");
       equal(large.stops.length, 2472, "stop count");

@@ -9,7 +9,7 @@
     />
     <title>Bugabout — Follow your bug about</title>
     <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=91" />
+    <link rel="stylesheet" href="./styles.css?v=100" />
   </head>
   <body>
     <!-- Stated up front so the workspace is hidden at first paint. Bootstrap
@@ -68,10 +68,8 @@
                 <h2 id="journeyTitle"><span id="journeyTitleText">Scout’s grand bugabout</span></h2>
                 <div class="description" id="descriptionWrap">
                   <p id="journeyDescription">From a rainy Seattle sidewalk to the other side of the world—and back again.</p>
+                  <button class="link-button description-more" id="descriptionToggle" type="button" hidden>Read more</button>
                 </div>
-                <button class="link-button" id="descriptionToggle" type="button" aria-expanded="false" hidden>
-                  Read more
-                </button>
               </div>
               <button class="icon-button" type="button" aria-label="Copy a link to this journey" id="shareButton">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -140,7 +138,10 @@
                 </div>
                 <div class="map-sound">
                   <button class="map-button" id="soundButton" type="button" aria-haspopup="true" aria-expanded="false">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Zm4.5 4.2a4 4 0 0 1 0 5.6M18 6.5a7.5 7.5 0 0 1 0 11" /></svg>
+                    <!-- Two glyphs toggled by .selected, the same way the play
+                         button swaps play for pause. -->
+                    <svg class="sound-on-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Zm4.5 4.2a4 4 0 0 1 0 5.6M18 6.5a7.5 7.5 0 0 1 0 11" /></svg>
+                    <svg class="sound-off-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Z" /><path d="m16.5 9.5 5 5m0-5-5 5" /></svg>
                     Sound
                   </button>
                   <div class="sound-menu" id="soundMenu" role="menu" hidden></div>
@@ -221,6 +222,7 @@
       <h2 id="placesTitle">Countries visited</h2>
       <div class="places-scroller" id="placesScroller">
         <ol class="places-list" id="placesList"></ol>
+        <div class="places-text" id="placesText" hidden></div>
       </div>
     </dialog>
 
@@ -252,7 +254,7 @@
     <script src="./country-lookup.js?v=5"></script>
     <script src="./journey-link.js?v=4"></script>
     <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=102"></script>
+    <script src="./app.js?v=109"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="./livereload.js"></script>

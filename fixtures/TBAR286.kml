@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.2">
+
+<Document><Style id="tbTravelStyle"><LineStyle>
+  <width>3</width>
+  <color>ff00ffff</color>
+</LineStyle><PolyStyle>
+  <color>ff00ffff</color>
+</PolyStyle></Style><name>Benny the Burger</name><description><![CDATA[
+Benny the Burger has traveled 18972.4483097703 miles.]]></description><Folder><Style /><name>Travel Bug Stops (18972.4483097703 mile(s))</name><open>0</open><Placemark><name>GC6NC4B</name><Point><coordinates>-64.9215,18.3657,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|1|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC41JHV</name><Point><coordinates>-80.1518,26.0639,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC9RQ31</name><Point><coordinates>-82.7725,34.6226,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|3|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCAJ0ZG</name><Point><coordinates>-112.0584,41.1219,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|4|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC5C</name><Point><coordinates>-112.4787,42.8416,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|5|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC891Z1</name><Point><coordinates>-87.6405,41.879,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|6|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC7B8M4</name><Point><coordinates>-87.6563,41.9474,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|7|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC26C4</name><Point><coordinates>-87.908,41.8687,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|8|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC6KQ3A</name><Point><coordinates>-88.9778,42.4961,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|9|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC26C4</name><Point><coordinates>-87.9079,41.869,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|10|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC7B96D</name><Point><coordinates>-87.0593,41.4671,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|11|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC8W6CX</name><Point><coordinates>-86.7403,41.7664,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|12|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC2ND06</name><Point><coordinates>-82.1678,29.8186,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|13|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC23</name><Point><coordinates>-157.9018,21.393,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|14|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBDQPY</name><Point><coordinates>-123.3794,48.5129,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|15|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC6KPTH</name><Point><coordinates>7.303,47.0714,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|16|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBMZ02</name><Point><coordinates>7.6783,46.7316,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|17|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCAB02Q</name><Point><coordinates>8.2862,54.7576,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|18|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark></Folder><Placemark><styleUrl>#tbTravelStyle</styleUrl><name>Travelbug Route</name><LineString><extrude>1</extrude><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><coordinates>-64.9215,18.3657,100  
+-80.1518,26.0639,100  
+-82.7725,34.6226,100  
+-112.0584,41.1219,100  
+-112.4787,42.8416,100  
+-87.6405,41.879,100  
+-87.6563,41.9474,100  
+-87.908,41.8687,100  
+-88.9778,42.4961,100  
+-87.9079,41.869,100  
+-87.0593,41.4671,100  
+-86.7403,41.7664,100  
+-82.1678,29.8186,100  
+-157.9018,21.393,100  
+-123.3794,48.5129,100  
+7.303,47.0714,100  
+7.6783,46.7316,100  
+8.2862,54.7576,100  
+</coordinates></LineString><visibility>1</visibility></Placemark></Document></kml>

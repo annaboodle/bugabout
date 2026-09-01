@@ -191,8 +191,10 @@ const els = {
   placesEyebrow: document.querySelector("#placesEyebrow"),
   placesList: document.querySelector("#placesList"),
   placesScroller: document.querySelector("#placesScroller"),
+  placesText: document.querySelector("#placesText"),
   appShell: document.querySelector(".app-shell"),
   emptyState: document.querySelector("#emptyState"),
+  journeyWorkspace: document.querySelector(".journey-workspace"),
   emptyActions: document.querySelector("#emptyActions"),
   headerActions: document.querySelector("#headerActions"),
   introActions: document.querySelector("#introActions"),
@@ -1164,9 +1166,22 @@ function unwrapLongitude(longitude, reference) {
   return reference + delta;
 }
 
+// The fixed counts were tuned on a 2,472-stop journey, where neighbouring stops
+// are often metres apart and 45 ahead is a local cluster. On a sparse journey
+// they span the whole route: an 18-stop bug crossing the Caribbean, Hawaii and
+// Switzerland framed stops 0..17 at every index, so the frame never changed and
+// the camera never moved. Scaling to the journey keeps the dense case identical
+// (2,472 still yields 8 and 45) while letting a short one actually travel.
+function cameraWindow() {
+  const ahead = Math.min(CAMERA_LOOKAHEAD, Math.max(2, Math.round(journey.length / 8)));
+  const behind = Math.min(CAMERA_LOOKBEHIND, Math.max(1, Math.round(ahead / 5)));
+  return { behind, ahead };
+}
+
 function windowFrame(index, position) {
-  const first = Math.max(0, index - CAMERA_LOOKBEHIND);
-  const last = Math.min(journey.length - 1, index + CAMERA_LOOKAHEAD);
+  const { behind, ahead } = cameraWindow();
+  const first = Math.max(0, index - behind);
+  const last = Math.min(journey.length - 1, index + ahead);
 
   // Longitudes are unwrapped against the bug so a route crossing the
   // antimeridian frames the crossing instead of the whole globe.
@@ -1882,47 +1897,17 @@ function renderTimelineLabels() {
   els.timelineLabels.innerHTML = "";
 }
 
-let descriptionExpanded = false;
-
-function applyDescriptionHeight(needsToggle) {
-  const wrap = els.descriptionWrap;
-  if (!needsToggle) {
-    wrap.style.maxHeight = "none";
-    return;
-  }
-  if (descriptionExpanded) {
-    wrap.style.maxHeight = `${wrap.scrollHeight}px`;
-    const release = (event) => {
-      if (event.propertyName !== "max-height") return;
-      wrap.removeEventListener("transitionend", release);
-      if (descriptionExpanded) wrap.style.maxHeight = "none";
-    };
-    wrap.addEventListener("transitionend", release);
-    return;
-  }
-  // Collapsing from "none" has nothing to interpolate from, so pin the current
-  // height for a frame first.
-  if (wrap.style.maxHeight === "none") {
-    wrap.style.maxHeight = `${wrap.scrollHeight}px`;
-    void wrap.offsetHeight;
-  }
-  wrap.style.maxHeight = "";
-}
-
+// Clamped to two lines and opened in a dialog rather than expanded in place.
+// Expanding inline pushed the map down the page, which is the space the
+// fit-to-viewport layout exists to protect.
 function renderDescription() {
   const full = (journeyMeta.description ?? "").replace(/\s+/g, " ").trim();
   els.journeyDescription.textContent = full;
-
   const wrap = els.descriptionWrap;
-  wrap.classList.remove("expanded");
-  wrap.style.maxHeight = "";
-  const needsToggle = wrap.scrollHeight > wrap.clientHeight + 2;
-
-  els.descriptionWrap.classList.toggle("expanded", descriptionExpanded || !needsToggle);
-  applyDescriptionHeight(needsToggle);
-  els.descriptionToggle.hidden = !needsToggle;
-  els.descriptionToggle.textContent = descriptionExpanded ? "Read less" : "Read more";
-  els.descriptionToggle.setAttribute("aria-expanded", String(descriptionExpanded));
+  // Measure without the button, which is absolutely positioned and so does not
+  // contribute to scrollHeight, but does sit over the text it is testing.
+  els.descriptionToggle.hidden = true;
+  els.descriptionToggle.hidden = wrap.scrollHeight <= wrap.clientHeight + 2;
 }
 
 // Where a link stops fitting depends on how spread out the route is, so this is
@@ -2236,7 +2221,6 @@ function renderJourneyHeader() {
   els.statusPill.innerHTML = "<i></i> Sample journey";
   els.statusPill.title = "Fictional demonstration data";
   els.journeyTitleText.textContent = journeyMeta.title;
-  descriptionExpanded = false;
   renderDescription();
   renderJourneyStats();
   els.journeyStats.scrollLeft = 0;
@@ -2265,9 +2249,23 @@ function setAppState(state) {
   els.openKmlButton.setAttribute("aria-label", label);
 }
 
+// Swapping one journey for another rewrites the heading, stats, log and map in a
+// single task, and the heading's height changes with the description — Brassica
+// for Captain Cookie moves the map down 60px. Starting the card at zero opacity
+// in that same task means the browser never paints the old content or the jump:
+// the first frame drawn is the new journey, already settled, fading up.
+function replayJourneyEntrance() {
+  const card = els.journeyWorkspace;
+  card.classList.remove("journey-entering");
+  void card.offsetWidth;
+  card.classList.add("journey-entering");
+}
+
 function loadJourneyData(data, options = {}) {
   pause();
   cancelMapLayoutTransition();
+  // Only for a swap. Arriving from the empty state already cross-fades.
+  const replacingAJourney = els.appShell.dataset.state === "journey";
   journeyMeta = { ...data.meta };
   journey = data.stops.map(normalizeStop).filter((stop) =>
     Number.isFinite(stop.lat) && Number.isFinite(stop.lng),
@@ -2275,6 +2273,7 @@ function loadJourneyData(data, options = {}) {
   if (!journey.length) throw new Error("No valid mapped stops were found.");
 
   setAppState("journey");
+  if (replacingAJourney) replayJourneyEntrance();
   maxProgress = Math.max(0, (journey.length - 1) * 100);
   state.progress = 0;
   state.currentIndex = -1;
@@ -2286,6 +2285,11 @@ function loadJourneyData(data, options = {}) {
   logExpandAfter = 0;
   logWindowStart = null;
   followActive = false;
+  // Every journey starts in Follow bug; updateCameraControls turns it off again
+  // for a route small enough to need no camera. Without this reset, loading a
+  // small journey left followEnabled false and the next journey opened on Whole
+  // route with no indication why.
+  setFollowEnabled(true);
   camera = null;
   appliedCamera = null;
   cameraView = null;
@@ -2305,10 +2309,12 @@ function loadJourneyData(data, options = {}) {
   enrichCountries();
 
   if (options.announce) {
-    const stops = `${journey.length.toLocaleString("en-US")} ${journey.length === 1 ? "stop" : "stops"}`;
+    // Non-breaking spaces bind each figure to its unit: the toast was wrapping
+    // between "176,530" and "miles".
+    const stops = `${journey.length.toLocaleString("en-US")}\u00a0${journey.length === 1 ? "stop" : "stops"}`;
     const distance =
-      journeyMeta.totalMiles == null ? "" : `, ${formatMiles(journeyMeta.totalMiles)} miles`;
-    showToast(`${journeyMeta.title} loaded — ${stops}${distance}`, 4200);
+      journeyMeta.totalMiles == null ? "" : `, ${formatMiles(journeyMeta.totalMiles)}\u00a0miles`;
+    showToast(`${journeyMeta.title} loaded: ${stops}${distance}`, 4200);
   }
 }
 
@@ -2436,7 +2442,22 @@ const PLACE_NOUNS = {
 
 // Rows carry either `sub` (plain text, escaped here) or `subHtml` (already-built
 // markup such as a linked cache reference), never both.
+// Prose rather than rows: same dialog, same scroller, same fades.
+function openTextDetail(eyebrow, title, text) {
+  els.placesEyebrow.textContent = eyebrow;
+  els.placesTitle.textContent = title;
+  els.placesList.innerHTML = "";
+  els.placesList.hidden = true;
+  els.placesText.hidden = false;
+  els.placesText.textContent = text;
+  els.placesText.scrollTop = 0;
+  els.placesDialog.showModal();
+  updatePlacesScroll();
+}
+
 function openDetail(eyebrow, title, rows) {
+  els.placesText.hidden = true;
+  els.placesList.hidden = false;
   els.placesEyebrow.textContent = eyebrow;
   els.placesTitle.textContent = title;
   els.placesList.innerHTML = rows
@@ -2816,7 +2837,10 @@ els.soundMenu.addEventListener("click", (event) => {
   setSoundMenuOpen(false);
 
   if (soundEnabled && !state.playing) {
-    showToast("Flight of the Bumblebee plays while the journey does.");
+    showToast(
+      "Enjoy the sweet stylings of \u201cFlight of the Bumblebee\u201d while your bug flies free.",
+      4600,
+    );
   }
 });
 
@@ -2840,8 +2864,11 @@ els.followButton.addEventListener("click", () => {
 });
 
 els.descriptionToggle.addEventListener("click", () => {
-  descriptionExpanded = !descriptionExpanded;
-  renderDescription();
+  openTextDetail(
+    "From the trackable page",
+    journeyMeta.title,
+    (journeyMeta.description ?? "").replace(/\s+/g, " ").trim(),
+  );
 });
 
 els.openKmlButton.addEventListener("click", () => els.kmlInput.click());
@@ -2892,14 +2919,19 @@ els.journeyStats.addEventListener("keydown", (event) => {
 els.countryStatCard.addEventListener("click", () => openPlaces("countries"));
 els.stateReadout.addEventListener("click", () => openPlaces("states"));
 // A 1px tolerance: fractional scroll positions never settle exactly on an end.
+function dialogBody() {
+  return els.placesText.hidden ? els.placesList : els.placesText;
+}
+
 function updatePlacesScroll() {
-  const list = els.placesList;
-  const remaining = list.scrollHeight - list.clientHeight - list.scrollTop;
-  els.placesScroller.dataset.top = String(list.scrollTop > 1);
+  const body = dialogBody();
+  const remaining = body.scrollHeight - body.clientHeight - body.scrollTop;
+  els.placesScroller.dataset.top = String(body.scrollTop > 1);
   els.placesScroller.dataset.bottom = String(remaining > 1);
 }
 
 els.placesList.addEventListener("scroll", updatePlacesScroll, { passive: true });
+els.placesText.addEventListener("scroll", updatePlacesScroll, { passive: true });
 els.closePlacesButton.addEventListener("click", () => els.placesDialog.close());
 els.placesDialog.addEventListener("click", (event) => {
   if (event.target === els.placesDialog) els.placesDialog.close();

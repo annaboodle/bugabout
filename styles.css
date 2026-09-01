@@ -79,6 +79,7 @@ button {
 }
 
 main {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -163,8 +164,16 @@ button {
   cursor: pointer;
 }
 
+/* Same box as .primary-button — height, padding, gap, radius, type size — so the
+   two read as one control in two weights. Only colour, weight and the shadow
+   separate them. */
 .quiet-button {
-  padding: 11px 15px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 22px;
   white-space: nowrap;
   border-radius: 999px;
   background: transparent;
@@ -237,7 +246,7 @@ button {
 .empty-actions .intro-actions {
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 .button-icon {
@@ -265,20 +274,47 @@ button {
   line-height: 1.02;
 }
 
-/* Entry and exit both animate; `display` is discrete, so it flips at the start
-   coming in and waits for the end going out. */
-.empty-state,
+@keyframes journey-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+/* `both` holds opacity at 0 before the first frame, so the swap and its layout
+   change happen while the card is invisible. */
+.journey-workspace.journey-entering {
+  animation: journey-enter 280ms ease both;
+}
+
+/* The workspace keeps `display` so it holds no space before a journey exists;
+   `display` is discrete and flips at the *start* of an entry, so the card is in
+   flow and correctly sized from the first frame. */
 .journey-workspace {
   transition:
     opacity 300ms ease,
-    transform 300ms ease,
     display 300ms allow-discrete;
 }
 
+/* The empty state must not use `display` to leave. Discrete properties hold
+   their old value until an exit transition *ends*, so for 300ms it went on
+   occupying 68px of the column and the card rendered 68px low, then snapped up
+   when display finally flipped. Going absolute removes it from flow instantly,
+   so the card lands in its final place on frame one and the empty state fades
+   out over it. `visibility` then takes it out of the a11y tree at the end. */
+.empty-state {
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease,
+    visibility 300ms;
+}
+
 .app-shell[data-state="journey"] .empty-state {
-  display: none;
+  position: absolute;
+  inset: 0;
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-14px);
+  pointer-events: none;
 }
 
 /* `:not(journey)` rather than `[data-state="empty"]`, so an unset attribute hides
@@ -407,30 +443,11 @@ button {
   position: relative;
   font-size: 13px;
   line-height: 1.55;
-  max-height: calc(5 * 1.55em);
+  /* Two lines. Five cost the map most of what fitting the viewport bought. */
+  max-height: calc(2 * 1.55em);
   overflow: hidden;
-  /* The open height is measured and set inline; a fixed bound finished animating
-     before the text had finished appearing. */
-  transition: max-height 340ms ease;
 }
 
-/* Softens the cut so a clipped paragraph does not end mid-letter. */
-.description::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 1.5em;
-  background: linear-gradient(rgba(255, 253, 247, 0), var(--panel));
-  opacity: 1;
-  transition: opacity 240ms ease;
-  pointer-events: none;
-}
-
-.description.expanded::after {
-  opacity: 0;
-}
 
 .link-button {
   margin-top: 6px;
@@ -447,6 +464,19 @@ button {
 
 .link-button:hover {
   text-decoration-color: var(--green-dark);
+}
+
+/* Sits at the end of the clamped second line; the gradient stops the text it
+   overlaps from running into it. */
+.description-more {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding-left: 46px;
+  /* A long enough ramp that the clipped text reads as fading out rather than
+     colliding with the label. */
+  background: linear-gradient(to right, rgba(255, 253, 247, 0), var(--panel) 42px);
 }
 
 .journey-stats {
@@ -1302,6 +1332,17 @@ button {
   padding: 0;
 }
 
+/* Sound starts off, so the muted glyph is the default and .selected swaps it.
+   The button previously showed a sounding speaker whatever the state. */
+.map-sound .map-button .sound-on-icon,
+.map-sound .map-button.selected .sound-off-icon {
+  display: none;
+}
+
+.map-sound .map-button.selected .sound-on-icon {
+  display: block;
+}
+
 .map-button.selected {
   color: var(--green-dark);
   background: var(--mint);
@@ -1720,7 +1761,7 @@ button {
 .toast {
   position: fixed;
   z-index: 1100;
-  bottom: 24px;
+  top: 24px;
   left: 50%;
   max-width: min(460px, calc(100vw - 34px));
   padding: 12px 18px;
@@ -1732,7 +1773,7 @@ button {
   font-weight: 750;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 15px);
+  transform: translate(-50%, -15px);
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
@@ -1915,6 +1956,29 @@ button {
 .places-scroller[data-top="true"]::before,
 .places-scroller[data-bottom="true"]::after {
   opacity: 1;
+}
+
+.places-text {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  padding: 0 14px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.places-text::-webkit-scrollbar {
+  width: 9px;
+}
+
+.places-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.places-text::-webkit-scrollbar-thumb {
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  background: rgba(24, 50, 44, 0.3);
 }
 
 .places-list {
