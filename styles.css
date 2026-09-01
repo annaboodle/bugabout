@@ -24,6 +24,8 @@
   --font-ui: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --route-stops: #3a2a9e, #1f6fd0, #12a5b0, #4fbf6a, #e8c53a, #f2762e, #d92d5e;
   --route-preview: #6b6f78;
+  /* Hot end of the stop-marker wake; it cools to --green over the trail window. */
+  --stop-hot: var(--coral);
   --line: rgb(from var(--ink) r g b / 0.13);
   --shadow: 0 18px 50px rgb(from var(--ink) r g b / 0.12);
   --radius-lg: 28px;
@@ -223,6 +225,86 @@ button {
   --radius-md: 18px;
   --radius-sm: 12px;
   --radius-xs: 8px;
+}
+
+/* Garden with retro-sunset map treatment: sunset's tile tint and route gradient,
+   but the caches stay green rather than following sunset's red --green, and their
+   wake starts yellow instead of orange. */
+:root[data-style="wildflower"] {
+  --ink: #2f3d24;
+  --muted: #62705a;
+  --paper: #eef2e0;
+  --paper-deep: #e0e8cd;
+  --panel: #f8fbef;
+  --green: #4a7a34;
+  --green-dark: #35591f;
+  --green-light: #5c9142;
+  --mint: #dcecc9;
+  --coral: #c4562f;
+  --coral-dark: #a3421f;
+  --yellow: #e8c04a;
+  --blue: #7fb3d5;
+  --highlight: #f1f7db;
+  --track: #d5dfc6;
+  /* From retro sunset, along with the filter and the ramp below. */
+  --map-ground: #bfd9e0;
+  --map-ground-warm: #e9dcc4;
+  --map-filter: sepia(0.18) saturate(0.95) contrast(1.03) brightness(1.02);
+  --route-stops: #e4462e, #ef7f34, #f0b03c, #efe3a0, #8fd0e0, #58c0d8;
+  --route-preview: #b9a68c;
+  /* Sunset remaps --green to red, which would drag the cache markers with it.
+     Keeping green here is the point of this variant; only the wake turns warm,
+     and it starts yellow rather than the shared coral. */
+  --stop-hot: #f5cd2e;
+  --texture: radial-gradient(circle at 20% 30%, rgb(from var(--green) r g b / 0.07), transparent 12rem),
+    radial-gradient(circle at 75% 70%, rgb(from var(--green) r g b / 0.05), transparent 14rem);
+  --glow: radial-gradient(circle at 88% 0%, rgb(from var(--yellow) r g b / 0.2), transparent 26rem);
+  --font-display: "Avenir Next", "Futura", "Trebuchet MS", var(--font-ui);
+  --radius-lg: 26px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+}
+
+/* The one theme that changes more than tokens. Every other button on the site is
+   a physical key — a solid offset block underneath, depressed on click. This
+   swaps that for a flat modern button: a soft ambient shadow that tightens on
+   hover, and a settle-in-place press instead of a travel of four pixels. Delete
+   this block with the theme. */
+:root[data-style="wildflower"] .primary-button {
+  box-shadow: 0 1px 2px rgb(from var(--ink) r g b / 0.14);
+}
+
+:root[data-style="wildflower"] .primary-button:hover {
+  transform: none;
+  box-shadow: 0 4px 14px rgb(from var(--green) r g b / 0.34);
+}
+
+:root[data-style="wildflower"] .primary-button:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 2px rgb(from var(--ink) r g b / 0.18);
+}
+
+:root[data-style="wildflower"] .quiet-button {
+  border: 1px solid var(--line);
+}
+
+:root[data-style="wildflower"] .play-button {
+  box-shadow: 0 1px 3px rgb(from var(--ink) r g b / 0.18);
+}
+
+:root[data-style="wildflower"] .play-button:hover {
+  transform: none;
+  box-shadow: 0 4px 16px rgb(from var(--coral) r g b / 0.4);
+}
+
+:root[data-style="wildflower"] .play-button:active {
+  transform: scale(0.94);
+  box-shadow: 0 1px 3px rgb(from var(--ink) r g b / 0.22);
+}
+
+:root[data-style="wildflower"] .brand-mark {
+  box-shadow: 0 1px 3px rgb(from var(--ink) r g b / 0.16);
 }
 
 /* TEMPORARY: the picker itself. */
@@ -1882,7 +1964,7 @@ button {
   border-radius: 50%;
   /* Recently visited stops cool from coral back to green over the trail window,
      leaving a visible wake behind the bug. */
-  background: color-mix(in srgb, var(--coral) calc(var(--recency) * 100%), var(--green));
+  background: color-mix(in srgb, var(--stop-hot) calc(var(--recency) * 100%), var(--green));
   box-shadow: 0 3px 10px rgb(from var(--ink) r g b / 0.23);
   transform: scale(calc(1 + var(--recency) * 0.18));
   transition: background 220ms ease, transform 220ms ease;
@@ -1904,9 +1986,9 @@ button {
 
 .map-stop-icon.current {
   --recency: 1;
-  background: var(--coral);
+  background: var(--stop-hot);
   transform: scale(1.3);
-  box-shadow: 0 0 0 4px rgb(from var(--coral) r g b / 0.22), 0 3px 10px rgb(from var(--ink) r g b / 0.23);
+  box-shadow: 0 0 0 4px rgb(from var(--stop-hot) r g b / 0.22), 0 3px 10px rgb(from var(--ink) r g b / 0.23);
 }
 
 .leaflet-tooltip.bug-tooltip {
