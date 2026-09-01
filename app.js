@@ -761,6 +761,28 @@ function scrollLogToTop() {
   });
 }
 
+// Same desktop-only rule as scrollLogToTop, for the same reason: on mobile the
+// page is the scroller, so pulling a row into view drags the map off screen —
+// exactly what someone watching playback does not want.
+function scrollLogToStop(index) {
+  const sidebar = els.journeySidebar;
+  if (sidebar.scrollHeight <= sidebar.clientHeight + 1) return;
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+  // "nearest" stops the moment the row's edge meets the frame, which on the
+  // final stop leaves the sidebar's 30px bottom padding below the fold and the
+  // last card jammed against the edge. Go all the way down instead.
+  if (index >= journey.length - 1) {
+    sidebar.scrollTo({ top: sidebar.scrollHeight, behavior });
+    return;
+  }
+  els.stopList.querySelector(`[data-stop="${index}"]`)?.scrollIntoView({
+    block: "nearest",
+    behavior,
+  });
+}
+
 function setLogMode(mode) {
   if (logMode === mode) return;
   logWindowStart = null;
@@ -1816,11 +1838,7 @@ function setProgress(value, options = {}) {
     if (options.pan && map && !(followEnabled && followActive)) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
-    if (options.scroll) {
-      els.stopList
-        .querySelector(`[data-stop="${index}"]`)
-        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
+    if (options.scroll) scrollLogToStop(index);
   }
 }
 
