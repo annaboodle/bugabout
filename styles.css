@@ -32,6 +32,10 @@
 
 html {
   background: var(--paper);
+  /* Standard safeguard against iOS inflating text on its own in WKWebViews.
+     Not the cause of the narrow toast — that was a `left: 50%` sizing bug. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -1762,10 +1766,20 @@ button {
   position: fixed;
   z-index: 1100;
   top: 24px;
-  left: 50%;
+  /* Centred by auto margins rather than left:50% + translateX. With left:50%
+     the shrink-to-fit width is measured against the space from the midpoint to
+     the right edge — half the viewport — so the text wrapped at 188px of an
+     available 341px and never reached max-width. */
+  right: 0;
+  left: 0;
+  width: fit-content;
+  margin: 0 auto;
   max-width: min(460px, calc(100vw - 34px));
-  padding: 12px 18px;
-  border-radius: 999px;
+  padding: 14px 20px;
+  /* A rounded rectangle, not a pill. 999px only reads as intended on one line;
+     once the text wraps the ends curve so hard they crowd the words, which is
+     what a phone-width toast does every time. */
+  border-radius: 20px;
   color: white;
   background: var(--ink);
   box-shadow: 0 12px 34px rgba(24, 50, 44, 0.28);
@@ -1773,13 +1787,13 @@ button {
   font-weight: 750;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -15px);
+  transform: translateY(-15px);
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .toast.visible {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
 }
 
 .drop-overlay {
