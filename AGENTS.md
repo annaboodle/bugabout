@@ -231,7 +231,18 @@ Do not work around this with server-side page parsing, authenticated scraping, s
 - The route is colored by chronology, oldest to newest, along the `ROUTE_RAMP` stops in `app.js`: indigo `#3a2a9e` → blue → cyan → green → yellow → orange → crimson `#d92d5e`. It travels roughly 547 degrees of hue. Two narrower ramps came before it — plum-to-coral, then indigo-to-orange at about 95 degrees — and both left most of a long journey looking the same colour, because a warm-only sweep has nowhere to go in the middle.
 - The ramp passes through green, which is also the cache-marker colour. They stay apart because the route green is much lighter: the nearest band sits 97 units from the marker's `#1f684f` in RGB. Keep that separation if the ramp is retuned. Purple is used because every other hue is already spoken for — green is the cache-stop markers, coral is movement and the bug, yellow is the bug marker — so an on-palette green ramp would blend old route segments into the stop dots. The stops are hand-picked rather than interpolated end to end, because a single purple-to-orange interpolation passes through a muddy grey-brown at its midpoint.
 - `app.js` publishes that ramp once as the `--route-ramp` custom property. The map bands and the timeline track fill both read it, so the scrubber *is* the route's legend. Do not hardcode the ramp a second time in CSS.
-- Georgia is the display face; system sans-serif fonts handle interface copy.
+- **CSS owns the ramp now, not JavaScript.** Each theme declares its seven stops as `--route-stops`; `readRouteStops()` parses that list and `publishRouteRamp()` derives `--route-ramp` from it. The old `ROUTE_RAMP` array is gone. Retune a ramp in the theme block, never in `app.js`.
+- Georgia is the display face; system sans-serif fonts handle interface copy. Both go through `--font-display` and `--font-ui` — no literal font stacks outside `:root`.
+
+### Theming
+
+- The site is fully tokenised: **zero raw colour values and zero literal `border-radius` lengths exist outside the `:root` blocks** (999px pills and 50% circles excepted — those are shape primitives, not scale). Anything hardcoded is invisible to the theme switcher and produces a half-changed page, which is the failure mode to watch for. `grep -nE 'rgba?\([0-9]|#[0-9a-fA-F]{3,8}' styles.css` outside `:root` must stay empty.
+- Themes are `:root[data-style="…"]` blocks overriding tokens only: colours, `--radius-lg/md/sm/xs`, `--texture`, `--glow`, `--map-filter`, `--route-stops`, `--route-preview`, and for sunset `--font-display`. **No theme changes layout.**
+- `--map-filter` lands on `.leaflet-tile-pane`, which re-tints the basemap without changing tile provider — parchment for treasure, canvas for expedition, greener for garden. `.map-underlay` keeps its own `blur(1.5px)`; filters compose rather than replace, so the blurred underlay still reads as out of focus.
+- `data-style` is set on `<html>` by a pre-paint script in `<head>`, the same way `data-state="empty"` is, so a persisted non-default theme never flashes the default first.
+- The 🐞 marker is deliberately identical across every theme. It is the mascot; varying it would confound the comparison.
+- Type stays on system stacks for this pass — no webfonts — which caps how far sunset and expedition can go typographically. Investing in a real face is the follow-up if a direction wins.
+- **The style picker in the header is TEMPORARY**, marked as such in both `index.html` and `styles.css`. Remove it and the losing theme blocks once a direction is chosen.
 - Use rounded, tactile controls with restrained shadows. Avoid generic blue SaaS styling.
 - Zoom lives in the map topbar with the other controls, as our own buttons; Leaflet's built-in `zoomControl` is disabled. They must call `disengageFollow` like any other manual map interaction.
 - The map topbar splits into two groups: zoom on the left, view controls on the right.
@@ -244,6 +255,7 @@ Do not work around this with server-side page parsing, authenticated scraping, s
 
 ## Confirmed gotchas
 
+- `.header-right` is `flex: 0 0 auto`, so at 375px the style picker's full-width labels pushed the two icon buttons past the header's right edge and gave the document a 453px scroll width. The picker is capped at 60px under 780px. The budget is tight by design: brand plus tagline takes 173px of 353px, leaving 168px for picker, two 44px buttons and their gaps. Anything new in that header has to earn its width.
 - Leaflet JavaScript is not enough: its base stylesheet supplies essential pane positioning. When the external stylesheet failed to load, markers rendered thousands of pixels below the map. Keep Leaflet CSS local and load it before `styles.css`.
 - The vendored data files carry their own `DATA_VERSION` in `country-lookup.js`. `index.html` only cache-busts the authored CSS and JS, so regenerating `countries.json` or `us-states.json` left browsers serving the previous copy — continents silently came back empty until the version was added. Bump it whenever `tools/` regenerates a boundary file. The same trap catches fixture KML during testing.
 - The in-app browser can retain a stale static stylesheet after a normal reload. The current HTML uses cache-busting query strings for authored CSS and JavaScript. Increment them when a verification reload demonstrably serves stale assets.

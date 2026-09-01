@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-style="notebook">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,7 +9,17 @@
     />
     <title>Bugabout — Follow your bug about</title>
     <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=102" />
+    <link rel="stylesheet" href="./styles.css?v=107" />
+    <script>
+      // TEMPORARY: applies the saved design style before first paint, so
+      // switching styles does not flash the default on every reload.
+      try {
+        var saved = localStorage.getItem("bugabout-style");
+        if (saved) document.documentElement.dataset.style = saved;
+      } catch (error) {
+        /* private mode; the default style stands */
+      }
+    </script>
   </head>
   <body>
     <!-- Stated up front so the workspace is hidden at first paint. Bootstrap
@@ -30,9 +40,20 @@
             <small>For the bug about town.</small>
           </span>
         </a>
-        <!-- Where the actions sit once a journey is loaded. They are moved here
-             from the empty state rather than duplicated, so the ids stay unique. -->
-        <div class="header-actions" id="headerActions"></div>
+        <div class="header-right">
+          <!-- TEMPORARY: design style picker. Remove alongside the theme blocks
+               in styles.css once a direction is chosen. -->
+          <select class="style-picker" id="stylePicker" aria-label="Design style">
+            <option value="notebook">Notebook</option>
+            <option value="sunset">Retro sunset</option>
+            <option value="expedition">Expedition poster</option>
+            <option value="treasure">Treasure map</option>
+            <option value="garden">Garden</option>
+          </select>
+          <!-- Where the actions sit once a journey is loaded. They are moved here
+               from the empty state rather than duplicated, so the ids stay unique. -->
+          <div class="header-actions" id="headerActions"></div>
+        </div>
       </header>
 
       <main>
@@ -254,7 +275,7 @@
     <script src="./country-lookup.js?v=5"></script>
     <script src="./journey-link.js?v=4"></script>
     <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=109"></script>
+    <script src="./app.js?v=112"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="./livereload.js"></script>

@@ -199,6 +199,7 @@ const els = {
   headerActions: document.querySelector("#headerActions"),
   introActions: document.querySelector("#introActions"),
   openKmlLabel: document.querySelector("#openKmlButton .button-label"),
+  stylePicker: document.querySelector("#stylePicker"),
   placesTitle: document.querySelector("#placesTitle"),
   countryStat: document.querySelector("#countryStat"),
   countryStatCard: document.querySelector("#countryStatCard"),
@@ -274,15 +275,19 @@ const worldOffsets = [-360, 0, 360];
 // hand-picked stops rather than a single purple-to-orange interpolation, which
 // passes through a muddy grey-brown at its midpoint. Coral is the palette's
 // existing movement accent, so the newest segment matches the bug.
-const ROUTE_RAMP = [
-  "#3a2a9e",
-  "#1f6fd0",
-  "#12a5b0",
-  "#4fbf6a",
-  "#e8c53a",
-  "#f2762e",
-  "#d92d5e",
-];
+// The ramp lives in CSS as --route-stops so a theme owns it. Read here rather
+// than declared here: the route is the most visually dominant element on the
+// page, and a theme that could not recolour it would only be half applied.
+let routeRamp = ["#3a2a9e", "#d92d5e"];
+
+function readRouteStops() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--route-stops");
+  const stops = raw
+    .split(",")
+    .map((stop) => stop.trim())
+    .filter((stop) => /^#[0-9a-f]{6}$/i.test(stop));
+  return stops.length >= 2 ? stops : routeRamp;
+}
 // Above any stop marker's 100 + index, with room for the pixel-Y term Leaflet
 // adds on top, so the bug is never buried by the caches it is visiting.
 const BUG_Z_INDEX = 1000000;
@@ -296,11 +301,11 @@ function hexToRgb(hex) {
 }
 
 function rampColor(amount) {
-  const scaled = clamp(amount, 0, 1) * (ROUTE_RAMP.length - 1);
-  const lower = Math.min(Math.floor(scaled), ROUTE_RAMP.length - 2);
+  const scaled = clamp(amount, 0, 1) * (routeRamp.length - 1);
+  const lower = Math.min(Math.floor(scaled), routeRamp.length - 2);
   const blend = scaled - lower;
-  const from = hexToRgb(ROUTE_RAMP[lower]);
-  const to = hexToRgb(ROUTE_RAMP[lower + 1]);
+  const from = hexToRgb(routeRamp[lower]);
+  const to = hexToRgb(routeRamp[lower + 1]);
   const channel = (index) => Math.round(from[index] + (to[index] - from[index]) * blend);
   return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
 }
@@ -308,8 +313,9 @@ function rampColor(amount) {
 // One source of truth for the ramp: the map bands read it from JS, the timeline
 // track and legend swatch read the same stops back out of this custom property.
 function publishRouteRamp() {
-  const stops = ROUTE_RAMP.map(
-    (color, index) => `${color} ${Math.round((index / (ROUTE_RAMP.length - 1)) * 100)}%`,
+  routeRamp = readRouteStops();
+  const stops = routeRamp.map(
+    (color, index) => `${color} ${Math.round((index / (routeRamp.length - 1)) * 100)}%`,
   ).join(", ");
   document.documentElement.style.setProperty(
     "--route-ramp",
@@ -2964,6 +2970,28 @@ document.addEventListener("drop", (event) => {
   els.dropOverlay.classList.remove("visible");
   importKmlFile(event.dataTransfer.files[0]);
 });
+
+// TEMPORARY: design style picker. Remove with the theme blocks in styles.css.
+const STYLE_KEY = "bugabout-style";
+
+function applyStyle(name) {
+  document.documentElement.dataset.style = name;
+  els.stylePicker.value = name;
+  try {
+    window.localStorage.setItem(STYLE_KEY, name);
+  } catch {
+    /* private mode; the choice just will not survive a reload */
+  }
+  // The ramp lives in CSS, so re-read it and repaint the bands that used it.
+  publishRouteRamp();
+  if (journey.length) {
+    buildMapJourney();
+    setProgress(state.progress, { force: true });
+  }
+}
+
+els.stylePicker.value = document.documentElement.dataset.style || "notebook";
+els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
 
 publishRouteRamp();
 initializeMap();
