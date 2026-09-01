@@ -29,6 +29,8 @@
   /* Where the bug is now, in both places it is shown: the map marker and the
      active row's pin. */
   --bug-mark: var(--yellow);
+  /* Ink for the active row's pin; the map marker uses the buggg.svg artwork. */
+  --bug-mark-ink: var(--ink);
   --stop-place: var(--coral-dark);
   --line: rgb(from var(--ink) r g b / 0.13);
   --shadow: 0 18px 50px rgb(from var(--ink) r g b / 0.12);
@@ -273,6 +275,7 @@ button {
      active row's place name drops back to plain text rather than adding a
      third accent to a card that already has a pink pin and a pink border. */
   --bug-mark: var(--coral);
+  --bug-mark-ink: #ffffff;
   --stop-place: var(--muted);
   --texture: radial-gradient(circle at 20% 30%, rgb(from var(--green) r g b / 0.07), transparent 12rem),
     radial-gradient(circle at 75% 70%, rgb(from var(--green) r g b / 0.05), transparent 14rem);
@@ -346,6 +349,41 @@ button {
   gap: 12px;
 }
 
+.product-about-button {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: rgb(from var(--panel) r g b / 0.78);
+  box-shadow: 0 4px 14px rgb(from var(--ink) r g b / 0.08);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.product-about-button:hover {
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgb(from var(--ink) r g b / 0.12);
+  transform: translateY(-1px);
+}
+
+.product-about-button svg {
+  width: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.app-shell[data-state="journey"] .product-about-button {
+  display: none;
+}
+
 /* The brand keeps its tagline on mobile, so the picker gives up its label width
    to leave room for the two icon buttons that move into the header on load. */
 @media (max-width: 780px) {
@@ -357,6 +395,36 @@ button {
     width: 60px;
     padding: 0 4px;
     letter-spacing: 0;
+  }
+
+  .product-about-button {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .product-about-button span {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .site-header {
+    gap: 8px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .style-picker {
+    width: 56px;
+  }
+
+  .product-about-button {
+    width: 32px;
+    height: 32px;
   }
 }
 
@@ -401,29 +469,19 @@ main {
   width: 46px;
   height: 46px;
   place-items: center;
-  border-radius: 50% 50% 43% 57% / 52% 44% 56% 48%;
+  border-radius: 50%;
   background: var(--coral);
   transform: rotate(-3deg);
   box-shadow: 0 5px 0 rgb(from var(--coral-dark) r g b / 0.18);
 }
 
-.brand-mark svg {
-  width: 32px;
-  stroke: var(--ink);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
+.brand-mark img {
+  display: block;
+  width: 34px;
+  height: 29px;
+  margin-top: 4px;
+  object-fit: contain;
   transform: rotate(3deg);
-}
-
-.brand-mark svg path:first-child {
-  fill: var(--yellow);
-}
-
-.brand-mark circle {
-  fill: var(--ink);
-  stroke: none;
 }
 
 .brand strong {
@@ -436,7 +494,7 @@ main {
 
 .brand small {
   display: block;
-  margin-top: 5px;
+  margin-top: 2px;
   color: var(--muted);
   font-size: 11px;
   font-weight: 650;
@@ -1245,7 +1303,7 @@ button {
   margin-bottom: 3px;
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -1377,7 +1435,7 @@ button {
 }
 
 .stop-item.active .stop-marker {
-  color: var(--ink);
+  color: var(--bug-mark-ink);
   background: var(--bug-mark);
   box-shadow: 0 0 0 3px rgb(from var(--bug-mark) r g b / 0.28);
 }
@@ -1719,8 +1777,8 @@ button {
 .play-button {
   flex: 0 0 auto;
   display: grid;
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   border-radius: 50%;
   color: white;
@@ -1740,7 +1798,7 @@ button {
 }
 
 .play-button svg {
-  width: 23px;
+  width: 34px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -1983,6 +2041,14 @@ button {
   transform-origin: center;
 }
 
+.bug-marker img {
+  display: block;
+  width: 28px;
+  height: 24px;
+  margin-top: 3px;
+  object-fit: contain;
+}
+
 .bug-marker::after {
   content: "";
   position: absolute;
@@ -2207,6 +2273,48 @@ button {
   line-height: 1.08;
 }
 
+.product-dialog {
+  width: min(500px, calc(100vw - 34px));
+}
+
+.product-dialog-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.product-dialog-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.product-dialog-copy strong {
+  color: var(--ink);
+}
+
+.product-dialog .dialog-note {
+  margin-top: 20px;
+}
+
+.product-dialog-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 17px;
+  padding: 0;
+  color: var(--coral-dark);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.product-dialog-link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 .dialog-steps {
   display: grid;
   gap: 12px;
@@ -2288,7 +2396,7 @@ button {
 }
 
 .places-text {
-  max-height: min(52vh, 420px);
+  max-height: min(52vh, 440px);
   overflow-y: auto;
   padding: 0 14px 0 0;
   font-size: 14px;
@@ -2311,7 +2419,7 @@ button {
 }
 
 .places-list {
-  max-height: min(52vh, 420px);
+  max-height: min(52vh, 440px);
   margin: 0;
   /* Keeps the rows and their rules clear of the scrollbar. */
   padding: 0 14px 0 0;
@@ -2396,7 +2504,6 @@ button {
 }
 
 .places-list li:has(small) {
-  align-items: flex-start;
   padding: 11px 2px;
 }
 
@@ -2428,24 +2535,16 @@ button {
   position: absolute;
   top: 15px;
   right: 15px;
+  display: grid;
   width: 34px;
   height: 34px;
+  padding: 0 0 2px;
+  place-items: center;
   border-radius: 50%;
   color: var(--muted);
   background: var(--paper-deep);
   font-size: 22px;
-}
-
-.dialog-bug {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  margin-bottom: 20px;
-  border-radius: 50%;
-  color: var(--ink);
-  background: var(--yellow);
-  box-shadow: inset 12px 0 0 var(--coral);
+  line-height: 1;
 }
 
 @keyframes bug-pulse {
@@ -2678,8 +2777,8 @@ button {
   }
 
   .play-button {
-    width: 46px;
-    height: 46px;
+    width: 54px;
+    height: 54px;
   }
 
   .player-labels {

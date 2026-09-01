@@ -186,6 +186,10 @@ const els = {
   aboutButton: document.querySelector("#aboutButton"),
   aboutDialog: document.querySelector("#aboutDialog"),
   closeAboutButton: document.querySelector("#closeAboutButton"),
+  productAboutButton: document.querySelector("#productAboutButton"),
+  productDialog: document.querySelector("#productDialog"),
+  closeProductDialogButton: document.querySelector("#closeProductDialogButton"),
+  productKmlHelpButton: document.querySelector("#productKmlHelpButton"),
   closePlacesButton: document.querySelector("#closePlacesButton"),
   placesDialog: document.querySelector("#placesDialog"),
   placesEyebrow: document.querySelector("#placesEyebrow"),
@@ -1058,7 +1062,7 @@ function buildMapJourney() {
     L.marker([journey[0].lat, journey[0].lng + longitudeOffset], {
       icon: L.divIcon({
         className: "bug-marker-wrap",
-        html: '<span class="bug-marker" aria-hidden="true">🐞</span>',
+        html: '<span class="bug-marker" aria-hidden="true"><img src="./assets/buggg.svg?v=1" alt=""></span>',
         iconSize: [46, 46],
         iconAnchor: [23, 23],
       }),
@@ -1917,7 +1921,6 @@ function tick(time) {
   if (nextProgress >= maxProgress) {
     setProgress(maxProgress, { force: true, scroll: true });
     pause();
-    showToast(`${journeyMeta.title} reached the latest mapped stop.`);
     return;
   }
 
@@ -2215,7 +2218,7 @@ function distanceComparisons(miles) {
       min: COAST_TO_COAST_MILES,
     },
     {
-      name: "In raccoons",
+      name: "In standard raccoons",
       value: Math.round((miles * FEET_PER_MILE) / RACCOON_FEET).toLocaleString("en-US"),
       sub: "laid nose to tail, two and a half feet apiece",
       min: 0,
@@ -2336,7 +2339,7 @@ function replayJourneyEntrance() {
   card.classList.add("journey-entering");
 }
 
-function loadJourneyData(data, options = {}) {
+function loadJourneyData(data) {
   pause();
   cancelMapLayoutTransition();
   // Only for a swap. Arriving from the empty state already cross-fades.
@@ -2382,15 +2385,6 @@ function loadJourneyData(data, options = {}) {
   buildMapJourney();
   setProgress(0, { force: true });
   enrichCountries();
-
-  if (options.announce) {
-    // Non-breaking spaces bind each figure to its unit: the toast was wrapping
-    // between "176,530" and "miles".
-    const stops = `${journey.length.toLocaleString("en-US")}\u00a0${journey.length === 1 ? "stop" : "stops"}`;
-    const distance =
-      journeyMeta.totalMiles == null ? "" : `, ${formatMiles(journeyMeta.totalMiles)}\u00a0miles`;
-    showToast(`${journeyMeta.title} loaded: ${stops}${distance}`, 4200);
-  }
 }
 
 let countryEnrichmentToken = 0;
@@ -2527,6 +2521,7 @@ function openTextDetail(eyebrow, title, text) {
   els.placesText.textContent = text;
   els.placesText.scrollTop = 0;
   els.placesDialog.showModal();
+  fitPlacesDialogBody();
   updatePlacesScroll();
 }
 
@@ -2551,6 +2546,7 @@ function openDetail(eyebrow, title, rows) {
   els.placesDialog.showModal();
   // After showModal, not before: a closed dialog is display:none, so every
   // measurement reads 0 and the list looks like it does not scroll.
+  fitPlacesDialogBody();
   updatePlacesScroll();
 }
 
@@ -2820,7 +2816,7 @@ async function importKmlFile(file) {
     const text = await file.text();
     const parsed = window.BugaboutKml.parse(text, { fileName: file.name });
     window.BugaboutLink?.clear();
-    loadJourneyData(parsed, { announce: true });
+    loadJourneyData(parsed);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Bugabout could not read that KML file.", 5000);
   } finally {
@@ -2849,7 +2845,6 @@ els.speedButton.addEventListener("click", () => {
   state.speed = speeds[(speeds.indexOf(state.speed) + 1) % speeds.length];
   renderSpeedControl();
   syncSound();
-  showToast(`Playback speed: ${state.speed}×`);
 });
 
 els.stopList.addEventListener("click", (event) => {
@@ -2936,12 +2931,6 @@ els.soundMenu.addEventListener("click", (event) => {
   renderSoundMenu();
   setSoundMenuOpen(false);
 
-  if (soundEnabled && !state.playing) {
-    showToast(
-      "Enjoy the sweet stylings of \u201cFlight of the Bumblebee\u201d while your bug flies free.",
-      4600,
-    );
-  }
 });
 
 document.addEventListener("click", (event) => {
@@ -3023,6 +3012,26 @@ function dialogBody() {
   return els.placesText.hidden ? els.placesList : els.placesText;
 }
 
+// A list that misses the CSS cap by only a few pixels creates a prominent
+// scrollbar that barely moves. Absorb that tiny remainder when the modal has
+// room, while leaving genuinely longer lists constrained and scrollable.
+const PLACES_MICRO_OVERFLOW = 24;
+
+function fitPlacesDialogBody() {
+  els.placesList.style.removeProperty("max-height");
+  els.placesText.style.removeProperty("max-height");
+
+  const body = dialogBody();
+  const overflow = body.scrollHeight - body.clientHeight;
+  if (overflow <= 1 || overflow > PLACES_MICRO_OVERFLOW) return;
+
+  const dialogHeight = els.placesDialog.getBoundingClientRect().height;
+  const viewportRoom = window.innerHeight - dialogHeight - 34;
+  if (viewportRoom < overflow + 1) return;
+
+  body.style.maxHeight = `${Math.ceil(body.clientHeight + overflow + 1)}px`;
+}
+
 function updatePlacesScroll() {
   const body = dialogBody();
   const remaining = body.scrollHeight - body.clientHeight - body.scrollTop;
@@ -3032,6 +3041,15 @@ function updatePlacesScroll() {
 
 els.placesList.addEventListener("scroll", updatePlacesScroll, { passive: true });
 els.placesText.addEventListener("scroll", updatePlacesScroll, { passive: true });
+window.addEventListener(
+  "resize",
+  () => {
+    if (!els.placesDialog.open) return;
+    fitPlacesDialogBody();
+    updatePlacesScroll();
+  },
+  { passive: true },
+);
 els.closePlacesButton.addEventListener("click", () => els.placesDialog.close());
 els.placesDialog.addEventListener("click", (event) => {
   if (event.target === els.placesDialog) els.placesDialog.close();
@@ -3041,6 +3059,16 @@ els.aboutButton.addEventListener("click", () => els.aboutDialog.showModal());
 els.closeAboutButton.addEventListener("click", () => els.aboutDialog.close());
 els.aboutDialog.addEventListener("click", (event) => {
   if (event.target === els.aboutDialog) els.aboutDialog.close();
+});
+
+els.productAboutButton.addEventListener("click", () => els.productDialog.showModal());
+els.closeProductDialogButton.addEventListener("click", () => els.productDialog.close());
+els.productDialog.addEventListener("click", (event) => {
+  if (event.target === els.productDialog) els.productDialog.close();
+});
+els.productKmlHelpButton.addEventListener("click", () => {
+  els.productDialog.close();
+  els.aboutDialog.showModal();
 });
 
 let dragDepth = 0;
@@ -3118,7 +3146,7 @@ async function bootstrap() {
   const shared = await window.BugaboutLink?.decode();
   if (shared) {
     try {
-      loadJourneyData(shared, { announce: true });
+      loadJourneyData(shared);
       return;
     } catch {
       showToast("That shared link could not be opened.");
