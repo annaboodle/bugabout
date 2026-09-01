@@ -650,10 +650,45 @@ function renderStopCount() {
   els.stopCount.textContent = `${journey.length.toLocaleString("en-US")} stops`;
 }
 
+// Two gaps of the same direction and depth are the same gap as far as the feed
+// is concerned; only its count has changed, and a re-announcement on every
+// window shift would be noise.
+function gapKey(gap) {
+  const direction = gap.querySelector("[data-gap]")?.dataset.gap ?? "";
+  const depth = gap.classList.contains("depth-2") ? 2 : gap.classList.contains("depth-1") ? 1 : 0;
+  return `${direction}:${depth}`;
+}
+
+// The "earlier stops" row arrives unannounced mid-playback, the moment the
+// window slides past the start of the journey, and every row below it stepped
+// down by its height between two frames. Growing it from nothing lets the feed
+// ease into the new position instead. The height has to be measured and handed
+// to CSS because the row's natural height is `auto`, which has nothing to
+// animate from.
+function openNewGapRows(previousKeys) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  for (const gap of els.stopList.querySelectorAll(".stop-gap")) {
+    if (previousKeys.has(gapKey(gap))) continue;
+    gap.style.setProperty("--gap-height", `${gap.offsetHeight}px`);
+    gap.classList.add("opening");
+    gap.addEventListener(
+      "animationend",
+      () => {
+        gap.classList.remove("opening");
+        gap.style.removeProperty("--gap-height");
+      },
+      { once: true },
+    );
+  }
+}
+
 function buildStopList(centerIndex = 0, force = false) {
   const signature = logSignature(centerIndex);
   if (!force && signature === state.logSignature) return;
   state.logSignature = signature;
+
+  const hadRows = els.stopList.childElementCount > 0;
+  const gapsBefore = new Set([...els.stopList.querySelectorAll(".stop-gap")].map(gapKey));
 
   els.stopList.classList.toggle("by-place", logMode === "place");
   els.stopList.innerHTML =
@@ -663,6 +698,10 @@ function buildStopList(centerIndex = 0, force = false) {
           journey.map((_, index) => index),
           centerIndex,
         );
+
+  // A first build has nothing to move down, and the card is running its own
+  // entrance animation over the top of it.
+  if (hadRows) openNewGapRows(gapsBefore);
 }
 
 // Inserting rows above the active card would otherwise shove it off screen, so
@@ -2190,13 +2229,17 @@ function distanceComparisons(miles) {
   ].filter((row) => miles >= row.min);
 }
 
+function stopCodeHtml(stop) {
+  return stop.cacheUrl
+    ? `<a href="${escapeHtml(stop.cacheUrl)}" target="_blank" rel="noreferrer">${escapeHtml(stop.code)}</a>`
+    : escapeHtml(stop.code);
+}
+
 function stopReferenceHtml(index) {
   const stop = journey[index];
   if (!stop) return "";
   const where = [stop.region, stop.country].filter(Boolean).join(", ");
-  const code = stop.cacheUrl
-    ? `<a href="${escapeHtml(stop.cacheUrl)}" target="_blank" rel="noreferrer">${escapeHtml(stop.code)}</a>`
-    : escapeHtml(stop.code);
+  const code = stopCodeHtml(stop);
   if (!where) return code;
   // Skipped where flags do not render, since the country is already spelled out
   // beside it and the fallback would read "FI Finland".
@@ -2499,7 +2542,7 @@ function openDetail(eyebrow, title, rows) {
       return `
         <li>
           <span class="places-name">${flag}${escapeHtml(row.name)}${detail ? `<small>${detail}</small>` : ""}</span>
-          <span class="places-count">${escapeHtml(row.value)}</span>
+          <span class="places-count">${row.valueHtml ?? escapeHtml(row.value)}</span>
         </li>
       `;
     })
@@ -2539,16 +2582,33 @@ function openDistance() {
 
 const HEMISPHERE_NAMES = { N: "northern", S: "southern", E: "eastern", W: "western" };
 
+// Where it got is the answer; the reading and the cache are how you would check
+// it. So the place takes the right-hand column and the degrees drop down beside
+// the cache code, rather than a column of bare numbers with the names buried.
+function reachRow(name, index, degrees) {
+  const stop = journey[index];
+  const where = stop ? [stop.region, stop.country].filter(Boolean).join(", ") : "";
+  const flag = where && flagsRender() ? flagEmoji(stop.countryCode) : "";
+  const mark = flag ? `<span class="place-flag" aria-hidden="true">${flag}</span>` : "";
+  const reference = stop ? stopCodeHtml(stop) : "";
+  return {
+    name,
+    // A stop with no country still has a reading to show, so it keeps the number.
+    valueHtml: where ? `${mark}${escapeHtml(where)}` : escapeHtml(degrees),
+    subHtml: where ? [reference, escapeHtml(degrees)].filter(Boolean).join(" · ") : reference,
+  };
+}
+
 function openReach() {
   const far = journeyExtremes();
   const lat = degreeDecimals(far.north - far.south);
   const lng = degreeDecimals(far.east - far.west);
   const hemispheres = far.hemispheres;
   const rows = [
-    { name: "Furthest north", value: formatDegrees(far.north, "N", "S", lat), subHtml: stopReferenceHtml(far.northAt) },
-    { name: "Furthest south", value: formatDegrees(far.south, "N", "S", lat), subHtml: stopReferenceHtml(far.southAt) },
-    { name: "Furthest east", value: formatDegrees(far.east, "E", "W", lng), subHtml: stopReferenceHtml(far.eastAt) },
-    { name: "Furthest west", value: formatDegrees(far.west, "E", "W", lng), subHtml: stopReferenceHtml(far.westAt) },
+    reachRow("Furthest north", far.northAt, formatDegrees(far.north, "N", "S", lat)),
+    reachRow("Furthest south", far.southAt, formatDegrees(far.south, "N", "S", lat)),
+    reachRow("Furthest east", far.eastAt, formatDegrees(far.east, "E", "W", lng)),
+    reachRow("Furthest west", far.westAt, formatDegrees(far.west, "E", "W", lng)),
   ];
   if (hemispheres.length) {
     rows.push({

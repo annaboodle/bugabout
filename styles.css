@@ -1406,6 +1406,28 @@ button {
   animation: row-enter 260ms ease both;
 }
 
+/* A gap row appearing changes the height of the list, so it opens rather than
+   fades: the feed below rides its height down instead of stepping a row between
+   two frames. --gap-height is measured in JS because the row's natural height is
+   `auto`, which cannot be animated from zero. */
+@keyframes gap-open {
+  from {
+    height: 0;
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    height: var(--gap-height);
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stop-gap.opening {
+  overflow: hidden;
+  animation: gap-open 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes log-swap {
   from {
     opacity: 0;
@@ -2343,6 +2365,13 @@ button {
 .places-name small .place-flag {
   margin-right: 4px;
   font-size: 12px;
+}
+
+/* A place in the value column reads as a name, not a measurement, so it drops
+   the tabular figures and gives the flag room. */
+.places-count .place-flag {
+  margin-right: 7px;
+  font-variant-numeric: normal;
 }
 
 .places-name small a {
