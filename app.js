@@ -1941,6 +1941,16 @@ const COAST_TO_COAST_MILES = 2790;
 // Latitude converts to distance at a near-constant rate; longitude does not,
 // which is why the tile headlines the north-south span rather than east-west.
 const MILES_PER_LATITUDE_DEGREE = 69.09;
+const FEET_PER_MILE = 5280;
+// Deadpan units. No floor on either: a six-stop journey is still thousands of
+// raccoons, which is the joke.
+const RACCOON_FEET = 2.5;
+// Jimothy is a real raccoon in Ballard, Seattle, with short spine syndrome: his
+// limbs are ordinary but his spine is compressed, so he is round and neckless.
+// No outlet has published a measurement, Wikipedia included, so 1.5 ft is an
+// estimate — a touch over half a typical raccoon, which is what the condition
+// looks like in photographs. Adjust freely; nothing else depends on it.
+const JIMOTHY_FEET = 1.5;
 
 function formatDegrees(value, positive, negative, decimals = 1) {
   return `${Math.abs(value).toFixed(decimals)}° ${value >= 0 ? positive : negative}`;
@@ -2149,6 +2159,18 @@ function distanceComparisons(miles) {
       sub: "Los Angeles to New York, 2,790 miles",
       min: COAST_TO_COAST_MILES,
     },
+    {
+      name: "In raccoons",
+      value: Math.round((miles * FEET_PER_MILE) / RACCOON_FEET).toLocaleString("en-US"),
+      sub: "laid nose to tail, two and a half feet apiece",
+      min: 0,
+    },
+    {
+      name: "In Jimothys",
+      value: Math.round((miles * FEET_PER_MILE) / JIMOTHY_FEET).toLocaleString("en-US"),
+      sub: "Seattle’s beloved short-spined raccoon, about a foot and a half",
+      min: 0,
+    },
   ].filter((row) => miles >= row.min);
 }
 
@@ -2159,7 +2181,12 @@ function stopReferenceHtml(index) {
   const code = stop.cacheUrl
     ? `<a href="${escapeHtml(stop.cacheUrl)}" target="_blank" rel="noreferrer">${escapeHtml(stop.code)}</a>`
     : escapeHtml(stop.code);
-  return `${code}${where ? ` · ${escapeHtml(where)}` : ""}`;
+  if (!where) return code;
+  // Skipped where flags do not render, since the country is already spelled out
+  // beside it and the fallback would read "FI Finland".
+  const flag = flagsRender() ? flagEmoji(stop.countryCode) : "";
+  const mark = flag ? `<span class="place-flag" aria-hidden="true">${flag}</span>` : "";
+  return `${code} · ${mark}${escapeHtml(where)}`;
 }
 
 function renderJourneyStats() {
@@ -2514,18 +2541,22 @@ function openCaches() {
   const counts = new Map();
   for (const stop of journey) counts.set(stop.code, (counts.get(stop.code) ?? 0) + 1);
   const repeats = [...counts.entries()].filter(([, times]) => times > 1).sort((a, b) => b[1] - a[1]);
+  const returns = journey.length - counts.size;
+  // No "different caches" row: that figure is already the dialog's title and the
+  // tile that opened it. Return visits are not their own row either — they are
+  // exactly stops minus caches, and they belong to the row they explain.
   const rows = [
-    { name: "Different caches", value: counts.size.toLocaleString("en-US") },
     {
       name: "Mapped stops",
       value: journey.length.toLocaleString("en-US"),
       sub: "every visit, repeats included",
     },
-    { name: "Return visits", value: (journey.length - counts.size).toLocaleString("en-US") },
     {
-      name: "Seen more than once",
+      name: "Caches with repeat visits",
       value: repeats.length.toLocaleString("en-US"),
-      sub: repeats.length === 1 ? "cache" : "caches",
+      sub: `${returns.toLocaleString("en-US")} return ${returns === 1 ? "visit" : "visits"}${
+        repeats.length > 1 ? " between them" : ""
+      }`,
     },
   ];
   if (repeats.length) {
@@ -2546,6 +2577,16 @@ function openHops() {
   const median = sorted[sorted.length >> 1];
   const mean = hops.reduce((total, hop) => total + hop, 0) / hops.length;
   const count = (test) => hops.filter(test).length;
+  // Tracked by index rather than plucked from the sorted copy, so the row can
+  // name the two caches it ran between. hops[k] is journey[k] → journey[k + 1].
+  // Moves that begin and end at the same cache are skipped: the trackable was
+  // logged there twice and the few feet between them are GPS drift, not travel.
+  // The large fixture's true shortest was 42 ft of exactly that.
+  let shortestAt = -1;
+  hops.forEach((hop, k) => {
+    if (hop <= 0 || journey[k].code === journey[k + 1].code) return;
+    if (shortestAt === -1 || hop < hops[shortestAt]) shortestAt = k;
+  });
   const rows = [
     { name: "Typical move", value: `${formatMiles(median)} mi`, sub: "half of them were shorter" },
     {
@@ -2556,7 +2597,14 @@ function openHops() {
       // is twice its median and involves no flight of any kind.
       sub: mean > median * 2 && mean > 25 ? "pulled up by a few long flights" : null,
     },
-    { name: "Shortest move", value: formatShortDistance(sorted.find((hop) => hop > 0) ?? 0) },
+    {
+      name: "Shortest move",
+      value: formatShortDistance(shortestAt === -1 ? 0 : hops[shortestAt]),
+      subHtml:
+        shortestAt === -1
+          ? undefined
+          : `${stopReferenceHtml(shortestAt)} → ${stopReferenceHtml(shortestAt + 1)}`,
+    },
     { name: "Under a mile", value: count((hop) => hop < 1).toLocaleString("en-US") },
   ];
   for (const threshold of [100, 1000]) {

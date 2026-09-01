@@ -138,6 +138,15 @@ main {
   letter-spacing: -0.6px;
 }
 
+.brand small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
 .map-actions {
   display: flex;
   align-items: center;
@@ -1587,9 +1596,11 @@ button {
    beside the date, so it carries a little more weight. */
 .player-main > .speed-button {
   height: 22px;
-  margin-top: 7px;
-  /* No horizontal padding: the S of "Speed" lines up with the scrubber. */
-  padding: 0;
+  /* Padded so the hover pill has room, then pulled back by the same amount so
+     the S of "Speed" still lines up with the scrubber. Removing the padding
+     outright aligned the text but left the pill clamped to the letters. */
+  margin: 7px 0 0 -7px;
+  padding: 0 7px;
   font-size: 10px;
 }
 
@@ -1867,7 +1878,7 @@ button {
 }
 
 .places-dialog {
-  width: min(390px, calc(100vw - 34px));
+  width: min(520px, calc(100vw - 34px));
 }
 
 .places-scroller {
@@ -1972,6 +1983,12 @@ button {
   line-height: 1.4;
 }
 
+/* Tighter than the 15px serif rows this class was written for. */
+.places-name small .place-flag {
+  margin-right: 4px;
+  font-size: 12px;
+}
+
 .places-name small a {
   color: var(--coral-dark);
   text-decoration-color: rgba(215, 85, 63, 0.45);
@@ -1983,11 +2000,16 @@ button {
   padding: 11px 2px;
 }
 
+/* The figure is what the row is for. At 10px muted it was smaller than its own
+   sub-line; it now matches the stat tiles' treatment of a number. */
 .places-count {
   flex: 0 0 auto;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
