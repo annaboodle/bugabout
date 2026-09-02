@@ -284,6 +284,21 @@ const worldOffsets = [-360, 0, 360];
 // page, and a theme that could not recolour it would only be half applied.
 let routeRamp = ["#3a2a9e", "#d92d5e"];
 
+// Same reason as the ramp: the value lives in CSS so a theme owns it, but the
+// canvas renderer needs it as a plain colour.
+function routePreviewColor() {
+  return (
+    getComputedStyle(document.documentElement).getPropertyValue("--route-preview").trim() ||
+    "#6b6f78"
+  );
+}
+
+// The preview used to be hidden by `.map-stage.playing .route-preview`, which a
+// canvas layer never sees.
+function syncRoutePreview() {
+  routeLine?.setStyle({ opacity: state.playing ? 0 : 1 });
+}
+
 function readRouteStops() {
   const raw = getComputedStyle(document.documentElement).getPropertyValue("--route-stops");
   const stops = raw
@@ -909,6 +924,12 @@ function initializeMap() {
     zoom: 2,
     zoomControl: false,
     worldCopyJump: true,
+    // Canvas, not SVG. The route is 24 bands repeated across three world copies,
+    // and on a long journey that is thousands of points which Leaflet reprojects
+    // and rewrites as path `d` attributes on every map move — the dominant cost
+    // of playback on a phone, and one no amount of trimming per-stop DOM work
+    // could reach. Markers are divIcons and stay in the DOM either way.
+    preferCanvas: true,
     // A phone-width map needs to dip below zoom 2 to make a genuinely global
     // journey fit. Fractional zoom keeps the world as large as the pane allows.
     minZoom: 0,
@@ -1003,7 +1024,7 @@ function routeFitBounds() {
 // Halved where the pointer is coarse: each marker is a bordered, shadowed circle
 // with a transition, and compositing 260 of them over an animating map is work a
 // phone does not have to spare during playback.
-const MARKER_BUDGET = window.matchMedia("(pointer: coarse)").matches ? 120 : 260;
+const MARKER_BUDGET = window.matchMedia("(pointer: coarse)").matches ? 50 : 260;
 
 function visibleStopPositions() {
   const bounds = map.getBounds().pad(0.2);
@@ -1089,9 +1110,11 @@ function buildMapJourney() {
 
   routeLine = L.polyline(routeLatLngs(journey), {
     className: "route-preview",
-    color: "#6b6f78",
+    // A canvas layer has no element for CSS to reach, so the themed colour is
+    // read here instead of being applied by the stylesheet.
+    color: routePreviewColor(),
     weight: 3,
-    opacity: 1,
+    opacity: state.playing ? 0 : 1,
     dashArray: "2 9",
     lineCap: "round",
     interactive: false,
@@ -2058,6 +2081,7 @@ function play() {
   lastRenderTime = 0;
   els.playButton.classList.add("playing");
   els.mapStage.classList.add("playing");
+  syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Pause journey");
   state.frame = requestAnimationFrame(tick);
 }
@@ -2069,6 +2093,7 @@ function pause() {
   state.lastTime = null;
   els.playButton.classList.remove("playing");
   els.mapStage.classList.remove("playing");
+  syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Play journey");
   if (state.frame) cancelAnimationFrame(state.frame);
   state.frame = null;
