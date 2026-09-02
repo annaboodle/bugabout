@@ -2576,11 +2576,21 @@ function openTextDetail(eyebrow, title, text) {
   updatePlacesScroll();
 }
 
-function openDetail(eyebrow, title, rows) {
+function openDetail(eyebrow, title, rows, { emoji } = {}) {
   els.placesText.hidden = true;
   els.placesList.hidden = false;
   els.placesEyebrow.textContent = eyebrow;
   els.placesTitle.textContent = title;
+  // Decorative, and hidden from screen readers: the title already names the
+  // creature, so announcing it twice is noise. Built as a node rather than
+  // markup, which keeps this off innerHTML entirely.
+  if (emoji) {
+    const mark = document.createElement("span");
+    mark.className = "title-emoji";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = emoji;
+    els.placesTitle.append(mark);
+  }
   els.placesList.innerHTML = rows
     .map((row) => {
       const detail = row.subHtml ?? (row.sub ? escapeHtml(row.sub) : "");
@@ -2633,16 +2643,22 @@ function openDistance() {
 // Captain Cookie 0.69 mi, Benny 555 mi — so the bottom band is where most bugs
 // live, since a trackable is usually walked from one cache to the next.
 const HOP_BANDS = [
-  { below: 1, name: "Doorstep hopper" },
-  { below: 10, name: "Bug about town" },
-  { below: 100, name: "Day tripper" },
-  { below: 1000, name: "Long hauler" },
-  { below: Infinity, name: "Globe hopper" },
+  // Forages a mile or two from the hive and comes home every time.
+  { name: "Hops like a honeybee", emoji: "🐝", fits: (median, mean) => mean < 5 },
+  // Local almost always, with the occasional long migration.
+  { name: "Hops like a ladybug", emoji: "🐞", fits: (median) => median < 10 },
+  // Crosses a continent in stages, hundreds of miles at a time.
+  { name: "Hops like a painted lady", emoji: "🦋", fits: (median) => median < 500 },
+  // Canada to Mexico, up to 3,000 miles, in a single generation.
+  { name: "Hops like a monarch", emoji: "🦋", fits: () => true },
 ];
 
-// Describes the hops, not the bug's stature: Captain Cookie has crossed three
-// continents and still hops 0.7 mi at a time, which is the point of the stat.
-const hopBand = (median) => HOP_BANDS.find((band) => median < band.below).name;
+// Both numbers, not just the median. The median alone is a poor discriminator —
+// nearly every trackable is walked from one cache to the next, so almost all of
+// them sit under a mile. What separates bugs is the gap between typical and
+// average (Brassica 0.17/0.4, Captain Cookie 0.69/71, Benny 555/1,117), which is
+// the same story the Average hop row already tells.
+const hopBand = (median, mean) => HOP_BANDS.find((band) => band.fits(median, mean));
 
 const HEMISPHERE_NAMES = { N: "northern", S: "southern", E: "eastern", W: "western" };
 
@@ -2799,7 +2815,8 @@ function openHops() {
       });
     }
   }
-  openDetail("Hop analysis", hopBand(median), rows);
+  const band = hopBand(median, mean);
+  openDetail("Hop analysis", band.name, rows, { emoji: band.emoji });
 }
 
 function openDateLine() {

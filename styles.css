@@ -2608,6 +2608,13 @@ html[data-booting="journey"] .empty-state {
 
 /* The figure is what the row is for. At 10px muted it was smaller than its own
    sub-line; it now matches the stat tiles' treatment of a number. */
+.title-emoji {
+  margin-left: 9px;
+  font-size: 0.82em;
+  /* Emoji sit high against a serif cap-height, so nudge it onto the baseline. */
+  vertical-align: 0.04em;
+}
+
 .places-count {
   flex: 0 0 auto;
   color: var(--ink);
