@@ -2627,6 +2627,23 @@ function openDistance() {
   );
 }
 
+// The median hop characterises a bug better than the number does, and the bands
+// are log-scaled on geography rather than on round numbers: a doorstep, a town,
+// a region, a country, a continent. Real medians for scale — Brassica 0.17 mi,
+// Captain Cookie 0.69 mi, Benny 555 mi — so the bottom band is where most bugs
+// live, since a trackable is usually walked from one cache to the next.
+const HOP_BANDS = [
+  { below: 1, name: "Doorstep hopper" },
+  { below: 10, name: "Bug about town" },
+  { below: 100, name: "Day tripper" },
+  { below: 1000, name: "Long hauler" },
+  { below: Infinity, name: "Globe hopper" },
+];
+
+// Describes the hops, not the bug's stature: Captain Cookie has crossed three
+// continents and still hops 0.7 mi at a time, which is the point of the stat.
+const hopBand = (median) => HOP_BANDS.find((band) => median < band.below).name;
+
 const HEMISPHERE_NAMES = { N: "northern", S: "southern", E: "eastern", W: "western" };
 
 // Where it got is the answer; the reading and the cache are how you would check
@@ -2754,9 +2771,9 @@ function openHops() {
     if (shortestAt === -1 || hop < hops[shortestAt]) shortestAt = k;
   });
   const rows = [
-    { name: "Typical move", value: `${formatMiles(median)} mi`, sub: "half of them were shorter" },
+    { name: "Typical hop", value: `${formatMiles(median)} mi`, sub: "half of them were shorter" },
     {
-      name: "Average move",
+      name: "Average hop",
       value: `${formatMiles(mean)} mi`,
       // The gap between the two is the story: local shuffling, rare long flights.
       // Needs an absolute floor as well as the ratio — Brassica's 0.3 mi average
@@ -2764,7 +2781,7 @@ function openHops() {
       sub: mean > median * 2 && mean > 25 ? "pulled up by a few long flights" : null,
     },
     {
-      name: "Shortest move",
+      name: "Shortest hop",
       value: formatShortDistance(shortestAt === -1 ? 0 : hops[shortestAt]),
       subHtml:
         shortestAt === -1
@@ -2782,7 +2799,7 @@ function openHops() {
       });
     }
   }
-  openDetail("How far it moved at a time", `${formatMiles(median)} mi typical`, rows);
+  openDetail("Hop analysis", hopBand(median), rows);
 }
 
 function openDateLine() {
