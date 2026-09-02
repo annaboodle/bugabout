@@ -1812,18 +1812,58 @@ function distanceAtProgress(progress) {
   return (cumulativeMiles[segmentIndex] + segmentDistance * segmentAmount) * distanceScale;
 }
 
+// Built once and then only ever re-lettered. This line used to be reassembled
+// with innerHTML on every stop — about seventeen times a second — which is what
+// broke every button on the page during playback on a phone: a click is only
+// dispatched if the element the touch *began* on is still in the document when
+// the finger lifts, and this was detaching a subtree inside the player card
+// under the user's thumb. Nothing here may replace a node; only text and
+// attributes change.
+let playerPlaceParts = null;
+
+function playerPlaceNodes() {
+  if (playerPlaceParts && playerPlaceParts.place.parentNode === els.playerPlace) {
+    return playerPlaceParts;
+  }
+  els.playerPlace.textContent = "";
+  const place = document.createTextNode("");
+  const dot = document.createElement("span");
+  dot.className = "player-dot";
+  dot.setAttribute("aria-hidden", "true");
+  dot.textContent = "•";
+  const link = document.createElement("a");
+  link.className = "player-cache";
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  // A stop without a cache URL still shows its code, as plain text.
+  const plainCode = document.createTextNode("");
+  els.playerPlace.append(place, dot, document.createTextNode(" "), link, plainCode);
+  playerPlaceParts = { place, dot, link, plainCode };
+  return playerPlaceParts;
+}
+
 function updateStory(index) {
   const stop = journey[index];
   els.playerDate.textContent = stop.date
     ? dateFormat.format(toDate(stop.date))
     : `Stop ${index + 1} of ${journey.length.toLocaleString("en-US")}`;
+
+  const { place, dot, link, plainCode } = playerPlaceNodes();
   const where = [stop.region, stop.country].filter(Boolean).join(", ");
-  const cacheLink = stop.cacheUrl
-    ? `<a class="player-cache" href="${escapeHtml(stop.cacheUrl)}" target="_blank" rel="noreferrer">${escapeHtml(stop.code)}</a>`
-    : escapeHtml(stop.code);
-  els.playerPlace.innerHTML = where
-    ? `${escapeHtml(where)} <span class="player-dot" aria-hidden="true">•</span> ${cacheLink}`
-    : cacheLink;
+  place.nodeValue = where ? `${where} ` : "";
+  dot.hidden = !where;
+
+  if (stop.cacheUrl) {
+    link.hidden = false;
+    link.href = stop.cacheUrl;
+    link.textContent = stop.code;
+    plainCode.nodeValue = "";
+  } else {
+    link.hidden = true;
+    link.removeAttribute("href");
+    link.textContent = "";
+    plainCode.nodeValue = stop.code;
+  }
 }
 
 // Long journeys only render about 120 of their stops, so an exact index match
