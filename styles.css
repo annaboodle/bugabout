@@ -2961,6 +2961,50 @@ html[data-booting="journey"] .empty-state {
   }
 }
 
+/* TEMPORARY: diagnostic switches, set from ?off= by the head script. Each one
+   removes a candidate cost so the phone can report a frame rate with it gone.
+   Remove this block, the head script and the build marker together. */
+
+/* anim — the same declarations the reduced-motion block uses, by attribute. */
+html[data-off~="anim"] *,
+html[data-off~="anim"] *::before,
+html[data-off~="anim"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* deco — flat everything: no shadows, no gradient grounds, no paper texture. */
+html[data-off~="deco"] * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html[data-off~="deco"] body,
+html[data-off~="deco"] .journey-sidebar,
+html[data-off~="deco"] .stops-section,
+html[data-off~="deco"] .journey-heading,
+html[data-off~="deco"] .stop-item.active .stop-button {
+  background-image: none !important;
+}
+
+html[data-off~="deco"] body {
+  background: var(--paper) !important;
+}
+
+/* map — the control. If the frame rate does not move with the map gone, the
+   map is not what is holding it down. */
+html[data-off~="map"] .map-stage #map,
+html[data-off~="map"] .map-stage .map-topbar {
+  visibility: hidden;
+}
+
+/* log — the rows are rebuilt as the bug advances; this drops them mid-playback. */
+html[data-off~="log"] .app-shell[data-state="journey"] .stop-list {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

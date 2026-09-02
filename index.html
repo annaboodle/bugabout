@@ -10,7 +10,7 @@
     <title>Bugabout — Follow your bug about</title>
     <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png?v=3" />
     <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=150" />
+    <link rel="stylesheet" href="./styles.css?v=151" />
     <script>
       // TEMPORARY: applies the saved design style before first paint, so
       // switching styles does not flash the default on every reload.
@@ -26,6 +26,22 @@
       // first and then vanished. Both are knowable before first paint.
       if (window.BUGABOUT_BUG || /(^|[#&])j=/.test(location.hash)) {
         document.documentElement.dataset.booting = "journey";
+      }
+
+      // TEMPORARY: ?off=deco,anim,markers,route,log,map,all — diagnostic
+      // switches for the mobile playback problem. Set before first paint so the
+      // stylesheet can key off them. Remove with the build marker.
+      try {
+        var off = new URLSearchParams(location.search).get("off");
+        if (off) {
+          var names = off.split(",").map(function (n) { return n.trim(); }).filter(Boolean);
+          if (names.indexOf("all") !== -1) {
+            names = ["deco", "anim", "markers", "route", "log", "map"];
+          }
+          document.documentElement.dataset.off = names.join(" ");
+        }
+      } catch (error) {
+        /* a malformed query string just means no switches */
       }
     </script>
   </head>
@@ -315,7 +331,7 @@
     <script src="./country-lookup.js?v=6"></script>
     <script src="./journey-link.js?v=5"></script>
     <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=145"></script>
+    <script src="./app.js?v=146"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="./livereload.js"></script>

@@ -271,6 +271,11 @@ const compactDateFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 const toDate = (value) => new Date(`${value}T12:00:00Z`);
+// TEMPORARY: reads the ?off= switches the head script parsed onto <html>.
+// Remove with the build marker and the diagnostic CSS block.
+const switchedOff = (name) =>
+  (document.documentElement.dataset.off ?? "").split(" ").includes(name);
+
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 const normalizeLongitude = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
 const worldOffsets = [-360, 0, 360];
@@ -1054,6 +1059,7 @@ function visibleStopPositions() {
 
 function refreshStopMarkers() {
   if (!map || !journey.length) return;
+  if (switchedOff("markers")) return;
   stopMarkers.forEach((marker) => map.removeLayer(marker));
   stopMarkers = new Map();
   trailedMarkers = new Map();
@@ -1168,6 +1174,7 @@ function showNearestBugCopy() {
 // polyline still covers all three world copies, because wrappedRouteLatLngs
 // returns a multi-part path.
 function buildRouteBands() {
+  if (switchedOff("route")) return;
   const segments = journey.length - 1;
   const bandCount = Math.max(1, Math.min(ROUTE_BANDS, segments));
   routeBands = [];
@@ -2494,6 +2501,15 @@ function loadJourneyData(data) {
   journey = data.stops.map(normalizeStop).filter((stop) =>
     Number.isFinite(stop.lat) && Number.isFinite(stop.lng),
   );
+  // TEMPORARY: ?every=3 plays every third stop, to answer whether the cost is
+  // simply the number of them. journeyMeta is untouched, so the mileage,
+  // country and state totals stay exact.
+  const every = Number(new URLSearchParams(location.search).get("every"));
+  if (Number.isInteger(every) && every > 1 && journey.length > every) {
+    const last = journey.at(-1);
+    journey = journey.filter((_, index) => index % every === 0);
+    if (journey.at(-1) !== last) journey.push(last);
+  }
   if (!journey.length) throw new Error("No valid mapped stops were found.");
 
   setAppState("journey");
@@ -3363,10 +3379,30 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
   let why = "";
   let down = null;
 
+  // Frames per second, counted in its own loop. This is the instrument the
+  // switches are judged by: the phone measured 10fps while its CPU sat at 11%,
+  // so the question for each switch is whether that number moves.
+  let frames = 0;
+  let fps = 0;
+  let fpsSince = performance.now();
+  const countFrame = (now) => {
+    frames += 1;
+    if (now - fpsSince >= 500) {
+      fps = Math.round((frames * 1000) / (now - fpsSince));
+      frames = 0;
+      fpsSince = now;
+    }
+    requestAnimationFrame(countFrame);
+  };
+  requestAnimationFrame(countFrame);
+
   const paint = () => {
+    const landed = counts.d ? Math.round((counts.c / counts.d) * 100) : 100;
+    const off = document.documentElement.dataset.off;
     marker.textContent =
-      `${build} · d${counts.d} u${counts.u} c${counts.c} x${counts.x}` +
-      `${state.playing ? " ▶" : ""}${why ? ` · ${why}` : ""}`;
+      `${build} · ${fps}fps · taps ${counts.c}/${counts.d} (${landed}%)` +
+      `${state.playing ? " ▶" : ""}${off ? ` · off:${off.replace(/ /g, ",")}` : ""}` +
+      `${why ? ` · ${why}` : ""}`;
   };
 
   const label = (node) =>
