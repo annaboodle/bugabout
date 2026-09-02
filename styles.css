@@ -264,12 +264,10 @@ button {
   --map-ground: #bfd9e0;
   --map-ground-warm: #e9dcc4;
   --map-filter: sepia(0.25) saturate(0.45) brightness(1.14) contrast(0.95);
-  /* Retro sunset's own warm-to-cool arc, with its cream and pale-sky stops
-     replaced. Those two sat *lighter* than the forest and water they crossed, so
-     softening the map could not rescue them — only darkening the ramp could. The
-     peach is load-bearing: it keeps the gold-to-teal sweep off the olive midpoint
-     that would otherwise collide with the green cache markers. */
-  --route-stops: #d92d20, #ee6a1f, #e8a317, #d98a5f, #4aa3b8, #3b9fd1;
+  /* Retro sunset's warm-to-cool arc, with its pale stops replaced. Leaf and sea
+     greens bridge gold to blue without the former muddy peach band, while staying
+     bright enough to remain distinct from the deep-green cache markers. */
+  --route-stops: #d92d20, #ee6a1f, #e8a317, #7fbd5a, #38ae91, #4aa3b8, #3b9fd1;
   --route-preview: #a89478;
   /* Sunset remaps --green to red, which would drag the cache markers with it.
      Keeping green here is the point of this variant; only the wake turns warm,
@@ -1247,6 +1245,17 @@ button {
 
 .place-item.state-item .place-button {
   padding-left: 26px;
+}
+
+/* A cache group needs air at both ends. Without it the first card sits flush
+   against the place row it belongs to — reading as a sibling of that row rather
+   than its contents — and the last runs straight into the next place. */
+.place-item + :is(.stop-item, .stop-gap):is(.depth-1, .depth-2) {
+  margin-top: 9px;
+}
+
+:is(.stop-item, .stop-gap):is(.depth-1, .depth-2):is(:last-child, :has(+ .place-item)) {
+  margin-bottom: 12px;
 }
 
 .stop-item.depth-1,

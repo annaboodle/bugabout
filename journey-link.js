@@ -104,9 +104,11 @@
     return Uint8Array.from(bytes);
   }
 
+  // Always the site root, never the current path. A fragment link built while a
+  // dedicated bug page was open would otherwise read as that bug's URL while
+  // carrying a different journey inside it.
   function linkFor(fragment) {
-    const { origin, pathname } = window.location;
-    return `${origin}${pathname}#${FRAGMENT_KEY}=${fragment}`;
+    return `${window.location.origin}/#${FRAGMENT_KEY}=${fragment}`;
   }
 
   // Resolves to a shareable URL, or null when the journey cannot be made to fit.
