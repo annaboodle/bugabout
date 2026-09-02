@@ -673,6 +673,13 @@ button {
     visibility 300ms;
 }
 
+/* Held back rather than hidden by state, because the state that will replace it
+   is not known until an async decode or fetch finishes. Cleared by setAppState
+   whichever way that lands, including the fallback to the empty state itself. */
+html[data-booting="journey"] .empty-state {
+  visibility: hidden;
+}
+
 .app-shell[data-state="journey"] .empty-state {
   position: absolute;
   inset: 0;
@@ -730,7 +737,10 @@ button {
   grid-area: sidebar;
   min-width: 0;
   overflow-y: auto;
-  padding: 26px 24px 30px;
+  /* No top padding: a sticky header offsets from the scrollport, so any padding
+     here becomes a band above it where rows stay visible as they scroll past.
+     The space moves onto the content instead. */
+  padding: 0 24px 30px;
   border-right: 1px solid var(--line);
   background:
     linear-gradient(rgb(from var(--panel) r g b / 0.96), rgb(from var(--panel) r g b / 0.96)),
@@ -1118,6 +1128,12 @@ button {
   margin-top: 0;
 }
 
+/* The breathing room the sidebar used to own, so it scrolls with the content
+   rather than sitting above the sticky headers. */
+.stops-section {
+  padding-top: 26px;
+}
+
 .section-title-row {
   display: flex;
   align-items: center;
@@ -1173,6 +1189,11 @@ button {
 
 .place-item {
   list-style: none;
+}
+
+.stop-list {
+  /* One place row, measured: the offset a stacked state header parks at. */
+  --place-row-height: 37px;
 }
 
 .place-button {
@@ -1243,29 +1264,42 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.place-item.state-item .place-button {
-  padding-left: 26px;
+/* Indentation is structural now: each level of nesting is one step in, rather
+   than a margin computed per depth. A cache group also gets air at both ends,
+   so the first card reads as the contents of the place above it and the last
+   does not run into the next place. */
+.place-children {
+  list-style: none;
+  margin: 5px 0 0;
+  padding: 0 0 0 20px;
 }
 
-/* A cache group needs air at both ends. Without it the first card sits flush
-   against the place row it belongs to — reading as a sibling of that row rather
-   than its contents — and the last runs straight into the next place. */
-.place-item + :is(.stop-item, .stop-gap):is(.depth-1, .depth-2) {
-  margin-top: 9px;
+.place-item + .place-item {
+  margin-top: 4px;
 }
 
-:is(.stop-item, .stop-gap):is(.depth-1, .depth-2):is(:last-child, :has(+ .place-item)) {
-  margin-bottom: 12px;
+.place-item.open {
+  margin-bottom: 10px;
 }
 
-.stop-item.depth-1,
-.stop-gap.depth-1 {
-  margin-left: 22px;
+/* Ten rows into Washington's 1,519 caches there was nothing on screen saying
+   which place they belonged to. The open rows hold their position while their
+   contents scroll under them, and because an open place now wraps those
+   contents, each stops exactly where its group ends. */
+.place-item.open > .place-button {
+  position: sticky;
+  /* Above .stop-button, which is positioned at z-index 1 and comes later in the
+     document, so an equal z-index put the rows on top of the header. */
+  z-index: 5;
+  top: 0;
+  background: var(--mint);
 }
 
-.stop-item.depth-2,
-.stop-gap.depth-2 {
-  margin-left: 40px;
+/* Parks directly under the country header. A gap here is not empty space — it
+   is a slot the rows underneath scroll through. */
+.place-item.state-item.open > .place-button {
+  z-index: 4;
+  top: var(--place-row-height);
 }
 
 .stop-list {
@@ -2633,7 +2667,11 @@ button {
   }
 
   .journey-sidebar {
-    padding: 22px 19px 28px;
+    padding: 0 19px 28px;
+  }
+
+  .stops-section {
+    padding-top: 22px;
   }
 }
 

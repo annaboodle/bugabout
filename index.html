@@ -10,7 +10,7 @@
     <title>Bugabout — Follow your bug about</title>
     <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png?v=3" />
     <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=137" />
+    <link rel="stylesheet" href="./styles.css?v=142" />
     <script>
       // TEMPORARY: applies the saved design style before first paint, so
       // switching styles does not flash the default on every reload.
@@ -19,6 +19,13 @@
         if (saved) document.documentElement.dataset.style = saved;
       } catch (error) {
         /* private mode; the default style stands */
+      }
+
+      // A dedicated bug page and a shared link both replace the empty state as
+      // soon as they resolve, but resolving is async, so the splash painted
+      // first and then vanished. Both are knowable before first paint.
+      if (window.BUGABOUT_BUG || /(^|[#&])j=/.test(location.hash)) {
+        document.documentElement.dataset.booting = "journey";
       }
     </script>
   </head>
@@ -301,7 +308,7 @@
     <script src="./country-lookup.js?v=6"></script>
     <script src="./journey-link.js?v=5"></script>
     <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=127"></script>
+    <script src="./app.js?v=129"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="./livereload.js"></script>

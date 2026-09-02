@@ -552,7 +552,11 @@ function stopRowsHtml(indexes, centerIndex, depth = 0) {
   return rows.join("");
 }
 
-function placeRowHtml({ name, flag, count, detail, open, attribute, isState }) {
+// An open place wraps its own contents rather than being followed by them. That
+// is what lets its header stick for exactly as long as the group is on screen —
+// in a flat list the header's containing block is its own single row, so it
+// would either not stick at all or go on hovering over whatever came next.
+function placeRowHtml({ name, flag, count, detail, open, attribute, isState, children = "" }) {
   return `
     <li class="place-item${isState ? " state-item" : ""}${open ? " open" : ""}" ${attribute}="${escapeHtml(name)}">
       <button class="place-button" type="button" aria-expanded="${open}">
@@ -564,16 +568,34 @@ function placeRowHtml({ name, flag, count, detail, open, attribute, isState }) {
         </span>
         <span class="place-count">${count.toLocaleString("en-US")}</span>
       </button>
+      ${children ? `<ol class="place-children">${children}</ol>` : ""}
     </li>
   `;
 }
 
+function countryChildrenHtml(country, centerIndex) {
+  if (!country.states.length) return stopRowsHtml(country.indexes, centerIndex, 1);
+  return country.states
+    .map((region) => {
+      const openState = region.name === expandedState;
+      return placeRowHtml({
+        name: region.name,
+        count: region.indexes.length,
+        detail: "",
+        open: openState,
+        attribute: "data-state",
+        isState: true,
+        children: openState ? stopRowsHtml(region.indexes, centerIndex, 2) : "",
+      });
+    })
+    .join("");
+}
+
 function placeListHtml(centerIndex) {
-  const rows = [];
-  for (const country of placeTree) {
-    const open = country.name === expandedCountry;
-    rows.push(
-      placeRowHtml({
+  return placeTree
+    .map((country) => {
+      const open = country.name === expandedCountry;
+      return placeRowHtml({
         name: country.name,
         flag: country.flag,
         count: country.indexes.length,
@@ -583,30 +605,10 @@ function placeListHtml(centerIndex) {
         open,
         attribute: "data-country",
         isState: false,
-      }),
-    );
-    if (!open) continue;
-
-    if (!country.states.length) {
-      rows.push(stopRowsHtml(country.indexes, centerIndex, 1));
-      continue;
-    }
-    for (const region of country.states) {
-      const openState = region.name === expandedState;
-      rows.push(
-        placeRowHtml({
-          name: region.name,
-          count: region.indexes.length,
-          detail: "",
-          open: openState,
-          attribute: "data-state",
-          isState: true,
-        }),
-      );
-      if (openState) rows.push(stopRowsHtml(region.indexes, centerIndex, 2));
-    }
-  }
-  return rows.join("");
+        children: open ? countryChildrenHtml(country, centerIndex) : "",
+      });
+    })
+    .join("");
 }
 
 // Indexes of whichever leaf list is currently on screen, so the rebuild check
@@ -2347,6 +2349,8 @@ const OPEN_KML_LABELS = {
 // One set of buttons, relocated rather than duplicated, so their ids stay unique
 // and every listener attached to them survives the move.
 function setAppState(state) {
+  // Whatever was inbound has landed — or failed and fallen back here.
+  delete document.documentElement.dataset.booting;
   els.appShell.dataset.state = state;
   const slot = state === "empty" ? els.emptyActions : els.headerActions;
   if (els.introActions.parentElement !== slot) slot.append(els.introActions);
