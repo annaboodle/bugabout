@@ -2910,6 +2910,36 @@ html[data-booting="journey"] .empty-state {
   }
 }
 
+/* Measured on a phone with Safari's timeline: playback ran at 10fps with median
+   97.6ms frames while the main thread sat at 11% CPU and script accounted for
+   1.1% of the time. The cost was compositing — single composites up to 91.5ms.
+   These five backdrop blurs all sit *over* the map, and a backdrop-filter is
+   recomputed every frame its backdrop moves; during playback the map moves
+   continuously, so all of them were being re-blurred forever. A short journey
+   re-frames the camera about five times where a long one does it constantly,
+   which is why an 18-stop bug played fine on the same device.
+
+   Dropped where the pointer is coarse, with the fills made near-opaque so the
+   controls still read as glass rather than as holes. */
+@media (pointer: coarse) {
+  .map-button,
+  .map-toggle,
+  .sound-menu,
+  .player-card {
+    backdrop-filter: none;
+  }
+
+  .map-button,
+  .map-toggle {
+    background: rgb(from var(--panel) r g b / 0.98);
+  }
+
+  .sound-menu,
+  .player-card {
+    background: var(--panel);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
