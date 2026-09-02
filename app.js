@@ -276,6 +276,20 @@ const toDate = (value) => new Date(`${value}T12:00:00Z`);
 const switchedOff = (name) =>
   (document.documentElement.dataset.off ?? "").split(" ").includes(name);
 
+// TEMPORARY: ?probe=raf runs a bare animation-frame loop that does nothing, so a
+// running loop can be tested on its own, without playback. ?loop=timer drives
+// playback from setInterval instead. The device reached 60fps with every visual
+// switch off and still dropped 90% of taps, so what is left to test is the loop
+// itself and the DOM it writes to, not how long a frame takes.
+const diagnosticParams = new URLSearchParams(location.search);
+const PROBE = diagnosticParams.get("probe") ?? "";
+const LOOP_MODE = diagnosticParams.get("loop") ?? "";
+
+if (PROBE === "raf") {
+  const spin = () => requestAnimationFrame(spin);
+  requestAnimationFrame(spin);
+}
+
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 const normalizeLongitude = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
 const worldOffsets = [-360, 0, 360];
@@ -2008,17 +2022,19 @@ function setProgress(value, options = {}) {
   state.progress = progress;
   state.currentIndex = index;
 
-  els.timeline.value = String(progress);
-  els.timeline.style.setProperty(
-    "--progress",
-    `${maxProgress ? (progress / maxProgress) * 100 : 0}%`,
-  );
-  updateRoute(progress);
-  updateStats(progress, index);
+  if (!switchedOff("timeline")) {
+    els.timeline.value = String(progress);
+    els.timeline.style.setProperty(
+      "--progress",
+      `${maxProgress ? (progress / maxProgress) * 100 : 0}%`,
+    );
+  }
+  if (!switchedOff("bug")) updateRoute(progress);
+  if (!switchedOff("stats")) updateStats(progress, index);
 
   if (indexChanged || options.force) {
-    updateStory(index);
-    updateStops(index);
+    if (!switchedOff("story")) updateStory(index);
+    if (!switchedOff("stops")) updateStops(index);
     if (options.pan && map && !(followEnabled && followActive)) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
@@ -2066,11 +2082,31 @@ function tick(time) {
   if (time - lastRenderTime >= RENDER_INTERVAL_MS) {
     lastRenderTime = time;
     pendingProgress = null;
-    setProgress(nextProgress);
+    // TEMPORARY: ?off=progress runs the loop but does none of its work.
+    if (!switchedOff("progress")) setProgress(nextProgress);
+    else state.progress = nextProgress;
   } else {
     pendingProgress = nextProgress;
   }
+  scheduleTick();
+}
+
+// TEMPORARY: ?loop=timer drives playback from a timer rather than animation
+// frames. The arithmetic in tick is elapsed-time based either way, so the
+// journey still runs for its proper duration; only the scheduler changes.
+function scheduleTick() {
+  if (LOOP_MODE === "timer") {
+    state.frame = window.setTimeout(() => tick(performance.now()), RENDER_INTERVAL_MS || 16);
+    return;
+  }
   state.frame = requestAnimationFrame(tick);
+}
+
+function cancelTick() {
+  if (!state.frame) return;
+  if (LOOP_MODE === "timer") window.clearTimeout(state.frame);
+  else cancelAnimationFrame(state.frame);
+  state.frame = null;
 }
 
 function play() {
@@ -2090,7 +2126,8 @@ function play() {
   els.mapStage.classList.add("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Pause journey");
-  state.frame = requestAnimationFrame(tick);
+  // TEMPORARY: ?off=tick shows the playing state but never starts the loop.
+  if (!switchedOff("tick")) scheduleTick();
 }
 
 function pause() {
@@ -2102,8 +2139,7 @@ function pause() {
   els.mapStage.classList.remove("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Play journey");
-  if (state.frame) cancelAnimationFrame(state.frame);
-  state.frame = null;
+  cancelTick();
 }
 
 function renderTimelineLabels() {
@@ -3399,10 +3435,13 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
   const paint = () => {
     const landed = counts.d ? Math.round((counts.c / counts.d) * 100) : 100;
     const off = document.documentElement.dataset.off;
+    const mode = [PROBE && `probe:${PROBE}`, LOOP_MODE && `loop:${LOOP_MODE}`]
+      .filter(Boolean)
+      .join(" ");
     marker.textContent =
       `${build} · ${fps}fps · taps ${counts.c}/${counts.d} (${landed}%)` +
-      `${state.playing ? " ▶" : ""}${off ? ` · off:${off.replace(/ /g, ",")}` : ""}` +
-      `${why ? ` · ${why}` : ""}`;
+      `${state.playing ? " ▶" : ""}${mode ? ` · ${mode}` : ""}` +
+      `${off ? ` · off:${off.replace(/ /g, ",")}` : ""}${why ? ` · ${why}` : ""}`;
   };
 
   const label = (node) =>
