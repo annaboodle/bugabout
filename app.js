@@ -3255,7 +3255,7 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
 
   window.addEventListener("pointerdown", (event) => {
     counts.d += 1;
-    down = { target: event.target, y: window.scrollY, at: performance.now() };
+    down = { target: event.target, y: window.scrollY, at: performance.now(), onControl: onAControl(event.target) };
     // Read after the event finishes, so listeners downstream have had their say.
     window.setTimeout(() => {
       if (down) down.prevented = event.defaultPrevented;
@@ -3263,18 +3263,42 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
     paint();
   }, { capture: true, passive: true });
 
+  // Aggregate counts mix button taps with map pans, so keep a short history of
+  // individual gestures instead. Each token is one gesture on a control:
+  //   ✓ ended in a click   ✗ ended in pointerup with no click   X cancelled
+  // followed by the page scroll during it.
+  const history = [];
+  const remember = (token) => {
+    history.push(token);
+    if (history.length > 6) history.shift();
+    why = history.join(" ");
+  };
+  const onAControl = (node) => node instanceof Element && Boolean(node.closest("button, a, [data-open]"));
+
   window.addEventListener("pointerup", (event) => {
     counts.u += 1;
-    if (down) {
+    if (down?.onControl) {
       const dy = Math.round(window.scrollY - down.y);
-      const same = event.target === down.target;
-      why = `dy${dy} tgt${same ? "=" : `≠${label(down.target)}>${label(event.target)}`} pd${down.prevented ? "Y" : "n"}`;
+      down.settled = window.setTimeout(() => {
+        remember(`✗${dy}${event.target === down.target ? "" : "≠"}`);
+        paint();
+      }, 350);
     }
     paint();
   }, { capture: true, passive: true });
 
-  window.addEventListener("pointercancel", () => { counts.x += 1; paint(); }, { capture: true, passive: true });
-  window.addEventListener("click", () => { counts.c += 1; paint(); }, { capture: true, passive: true });
+  window.addEventListener("pointercancel", () => {
+    counts.x += 1;
+    if (down?.onControl) remember("X");
+    paint();
+  }, { capture: true, passive: true });
+
+  window.addEventListener("click", () => {
+    counts.c += 1;
+    // The click arrived, so the pending "no click" verdict is wrong.
+    if (down?.settled) { window.clearTimeout(down.settled); remember("✓"); }
+    paint();
+  }, { capture: true, passive: true });
 
   paint();
   window.setInterval(paint, 500);

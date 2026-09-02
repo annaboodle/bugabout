@@ -455,14 +455,6 @@ button {
   stroke: var(--route-preview);
 }
 
-/* A modal traps focus but not scrolling: behind an open dialog the page still
-   scrolled under the backdrop, which on mobile — where the page is the scroller
-   — meant the journey slid away while a dialog sat on top of it. */
-html:has(dialog[open]),
-html:has(dialog[open]) body {
-  overflow: hidden;
-}
-
 .app-shell {
   width: min(1540px, 100%);
   min-height: 100vh;

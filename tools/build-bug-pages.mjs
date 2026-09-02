@@ -14,7 +14,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Only public `TB…` references belong here — never the tracking code printed on
 // the item itself. See "Trackable data safety" in AGENTS.md.
-const PAGES = [{ slug: "TBA5TD9" }];
+const PAGES = [{ slug: "TBA5TD9" }, { slug: "TBAR286" }];
 
 const decodeEntities = (value) =>
   value
