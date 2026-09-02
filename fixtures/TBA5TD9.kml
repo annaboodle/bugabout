@@ -8,7 +8,7 @@
   <color>ff00ffff</color>
 </PolyStyle></Style><name>Captain_Cookie&amp;#39;s Mileage Tracker</name><description><![CDATA[<p>This lackey tag commemorates the day that I received my Lackey tags while working at Geocaching HQ! It was a magical day full of laughs, smiles, and hugs all around. Please feel free to discover me!</p>
 
-Captain_Cookie&#39;s Mileage Tracker has traveled 176530.308910628 miles.]]></description><Folder><Style /><name>Travel Bug Stops (176530.308910628 mile(s))</name><open>0</open><Placemark><name>GC9GEE2</name><Point><coordinates>-122.3384,47.6613,100 
+Captain_Cookie&#39;s Mileage Tracker has traveled 176695.318463321 miles.]]></description><Folder><Style /><name>Travel Bug Stops (176695.318463321 mile(s))</name><open>0</open><Placemark><name>GC9GEE2</name><Point><coordinates>-122.3384,47.6613,100 
 </coordinates></Point><Style>
   <Icon>
     <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|1|FFFFFF|000000</href>
@@ -12368,6 +12368,61 @@ Captain_Cookie&#39;s Mileage Tracker has traveled 176530.308910628 miles.]]></de
   <Icon>
     <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2472|FFFFFF|000000</href>
   </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCAT257</name><Point><coordinates>-122.0428,48.0154,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2473|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC28Z6A</name><Point><coordinates>-122.0399,48.0144,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2474|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBW6GR</name><Point><coordinates>-121.7716,48.0868,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2475|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCB790M</name><Point><coordinates>-121.7988,48.0936,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2476|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC8RK9C</name><Point><coordinates>-122.0627,48.0147,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2477|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBE964</name><Point><coordinates>-122.1453,47.7591,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2478|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GC1575A</name><Point><coordinates>-121.5188,48.0548,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2479|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBWGT0</name><Point><coordinates>-122.3552,47.6232,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2480|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBWFE6</name><Point><coordinates>-122.3451,47.6494,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2481|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBHNVT</name><Point><coordinates>-122.2764,47.6399,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2482|FFFFFF|000000</href>
+  </Icon>
+</Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark><Placemark><name>GCBT03T</name><Point><coordinates>-122.2775,47.631,100 
+</coordinates></Point><Style>
+  <Icon>
+    <href>http://chart.apis.google.com/chart?chst=d_bubble_icon_text_small&amp;chld=location|bbT|2483|FFFFFF|000000</href>
+  </Icon>
 </Style><description><![CDATA[]]></description><visibility>1</visibility></Placemark></Folder><Placemark><styleUrl>#tbTravelStyle</styleUrl><name>Travelbug Route</name><LineString><extrude>1</extrude><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><coordinates>-122.3384,47.6613,100  
 -122.3486,47.6493,100  
 -122.3005,47.5882,100  
@@ -14840,4 +14895,15 @@ Captain_Cookie&#39;s Mileage Tracker has traveled 176530.308910628 miles.]]></de
 -122.346,47.6511,100  
 -122.3609,47.6597,100  
 -122.3678,47.6651,100  
+-122.0428,48.0154,100  
+-122.0399,48.0144,100  
+-121.7716,48.0868,100  
+-121.7988,48.0936,100  
+-122.0627,48.0147,100  
+-122.1453,47.7591,100  
+-121.5188,48.0548,100  
+-122.3552,47.6232,100  
+-122.3451,47.6494,100  
+-122.2764,47.6399,100  
+-122.2775,47.631,100  
 </coordinates></LineString><visibility>1</visibility></Placemark></Document></kml>

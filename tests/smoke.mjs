@@ -112,9 +112,9 @@ await (async function runBrowserSmokeTests() {
 
     await test("TBA5TD9 fixture parses with antimeridian crossings", async () => {
       large = await fixture("TBA5TD9");
-      equal(large.stops.length, 2472, "stop count");
-      equal(large.meta.uniqueCacheCodes, 2428, "unique cache count");
-      near(large.meta.totalMiles, 176530.309, 0.01, "official miles");
+      equal(large.stops.length, 2483, "stop count");
+      equal(large.meta.uniqueCacheCodes, 2439, "unique cache count");
+      near(large.meta.totalMiles, 176695.318, 0.01, "official miles");
       equal(large.meta.antimeridianCrossings, 2, "antimeridian crossings");
     });
 

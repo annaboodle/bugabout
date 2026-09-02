@@ -1306,7 +1306,7 @@ function unwrapLongitude(longitude, reference) {
 // they span the whole route: an 18-stop bug crossing the Caribbean, Hawaii and
 // Switzerland framed stops 0..17 at every index, so the frame never changed and
 // the camera never moved. Scaling to the journey keeps the dense case identical
-// (2,472 still yields 8 and 45) while letting a short one actually travel.
+// (2,483 still yields 8 and 45) while letting a short one actually travel.
 function cameraWindow() {
   const ahead = Math.min(CAMERA_LOOKAHEAD, Math.max(2, Math.round(journey.length / 8)));
   const behind = Math.min(CAMERA_LOOKBEHIND, Math.max(1, Math.round(ahead / 5)));
@@ -2656,7 +2656,7 @@ const HOP_BANDS = [
 // Both numbers, not just the median. The median alone is a poor discriminator —
 // nearly every trackable is walked from one cache to the next, so almost all of
 // them sit under a mile. What separates bugs is the gap between typical and
-// average (Brassica 0.17/0.4, Captain Cookie 0.69/71, Benny 555/1,117), which is
+// average (Brassica 0.17/0.4, Captain Cookie 0.7/75, Benny 555/1,117), which is
 // the same story the Average hop row already tells.
 const hopBand = (median, mean) => HOP_BANDS.find((band) => band.fits(median, mean));
 
