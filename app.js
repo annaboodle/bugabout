@@ -833,16 +833,31 @@ function scrollPlaceToRest(placeItem) {
   scroller.scrollTo({ top: scroller.scrollTop + drift, behavior: scrollBehavior() });
 }
 
-// Holds the active card against the top of the log as playback moves through
-// it. Instant while playing — a smooth scroll cannot settle between stops on a
-// long journey, and never arrives.
+// Holds the active card near the top of the log as playback moves through it.
+// Instant while playing — a smooth scroll cannot settle between stops on a long
+// journey, and never arrives.
+//
+// It holds a band rather than re-pinning every stop, the same way the map camera
+// holds a frame. Scrolling on every index cost 30ms of forced layout per stop at
+// 17 stops a second — each scroll dirtied layout that the next stop's measuring
+// had to resolve — which saturated a phone's main thread and left play, pause,
+// the speed control and the map buttons all unresponsive during playback.
 function pinLogToCurrentStop(index) {
+  // Everything here that can be decided without touching layout is decided
+  // first. `logScroller` reads scrollHeight and clientHeight, both of which
+  // force a reflow, and this runs on every index change in every layout — so
+  // asking it first cost the desktop the same reflow it cost the phone.
+  if (!window.matchMedia("(max-width: 780px)").matches) return;
+  // A windowed list already opens on the current stop, so there is nothing to
+  // hold; the gap row says so without measuring anything.
+  if (els.stopList.querySelector("[data-gap]")) return;
+  const row = els.stopList.querySelector(`[data-stop="${index}"]`);
+  if (!row) return;
   const scroller = logScroller();
   if (!scroller || scroller !== els.stopList) return;
-  const row = scroller.querySelector(`[data-stop="${index}"]`);
-  if (!row) return;
   const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  if (Math.abs(drift) < 1) return;
+  // Already in the top third: leave it alone.
+  if (drift >= 0 && drift < scroller.clientHeight / 3) return;
   scroller.scrollTo({
     top: scroller.scrollTop + drift,
     behavior: state.playing ? "auto" : scrollBehavior(),
