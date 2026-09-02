@@ -343,10 +343,11 @@ button {
   border-radius: 999px;
   color: rgb(from var(--ink) r g b / 0.55);
   background: rgb(from var(--panel) r g b / 0.82);
+  max-width: calc(100vw - 16px);
   font-size: 10px;
   font-weight: 750;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-transform: none;
   pointer-events: none;
 }
 

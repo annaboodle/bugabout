@@ -3233,14 +3233,49 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
   const sheet = [...document.styleSheets].map((s) => s.href).find((href) => href?.includes("styles.css"));
   const build = `${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
 
-  const counts = { d: 0, u: 0, c: 0 };
-  const paint = () =>
-    (marker.textContent = `${build} · d${counts.d} u${counts.u} c${counts.c}${state.playing ? " ▶" : ""}`);
-  // Capture phase on the window, so nothing downstream can hide these from the
-  // count by stopping propagation.
-  for (const [type, key] of [["pointerdown", "d"], ["pointerup", "u"], ["click", "c"]]) {
-    window.addEventListener(type, () => { counts[key] += 1; paint(); }, { capture: true, passive: true });
-  }
+  // d/u/c/x: pointerdown, pointerup, click, pointercancel.
+  // why: what the last gesture looked like, which is what separates the
+  // remaining explanations for a pointerup that produces no click —
+  //   dy   page scroll during the gesture (non-zero means the browser
+  //        reasonably treated it as a scroll and suppressed the click)
+  //   tgt  whether pointerup landed on the same element as pointerdown
+  //   pd   whether anything called preventDefault on the pointerdown
+  const counts = { d: 0, u: 0, c: 0, x: 0 };
+  let why = "";
+  let down = null;
+
+  const paint = () => {
+    marker.textContent =
+      `${build} · d${counts.d} u${counts.u} c${counts.c} x${counts.x}` +
+      `${state.playing ? " ▶" : ""}${why ? ` · ${why}` : ""}`;
+  };
+
+  const label = (node) =>
+    node instanceof Element ? node.tagName.toLowerCase() + (node.id ? `#${node.id}` : "") : "?";
+
+  window.addEventListener("pointerdown", (event) => {
+    counts.d += 1;
+    down = { target: event.target, y: window.scrollY, at: performance.now() };
+    // Read after the event finishes, so listeners downstream have had their say.
+    window.setTimeout(() => {
+      if (down) down.prevented = event.defaultPrevented;
+    }, 0);
+    paint();
+  }, { capture: true, passive: true });
+
+  window.addEventListener("pointerup", (event) => {
+    counts.u += 1;
+    if (down) {
+      const dy = Math.round(window.scrollY - down.y);
+      const same = event.target === down.target;
+      why = `dy${dy} tgt${same ? "=" : `≠${label(down.target)}>${label(event.target)}`} pd${down.prevented ? "Y" : "n"}`;
+    }
+    paint();
+  }, { capture: true, passive: true });
+
+  window.addEventListener("pointercancel", () => { counts.x += 1; paint(); }, { capture: true, passive: true });
+  window.addEventListener("click", () => { counts.c += 1; paint(); }, { capture: true, passive: true });
+
   paint();
   window.setInterval(paint, 500);
 })();
