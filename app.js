@@ -1000,7 +1000,10 @@ function routeFitBounds() {
 // a dot, so the route bent through caches nothing could be clicked on. Markers
 // are drawn for what is actually on screen instead, so zooming in reveals every
 // stop in view and the budget still bounds the work.
-const MARKER_BUDGET = 260;
+// Halved where the pointer is coarse: each marker is a bordered, shadowed circle
+// with a transition, and compositing 260 of them over an animating map is work a
+// phone does not have to spare during playback.
+const MARKER_BUDGET = window.matchMedia("(pointer: coarse)").matches ? 120 : 260;
 
 function visibleStopPositions() {
   const bounds = map.getBounds().pad(0.2);
@@ -1802,8 +1805,17 @@ const MARKER_TRAIL = 45;
 
 let trailedMarkers = new Map();
 
+// The icon is looked up once per marker and remembered on the element. This ran
+// a querySelector per marker per stop — 260 of them about seventeen times a
+// second — before anything had even changed.
+function iconFor(element) {
+  if (!element) return null;
+  if (!element._bugaboutIcon) element._bugaboutIcon = element.querySelector(".map-stop-icon");
+  return element._bugaboutIcon;
+}
+
 function setMarkerRecency(markerIndex, recency) {
-  const icon = stopMarkers.get(markerIndex)?.getElement()?.querySelector(".map-stop-icon");
+  const icon = iconFor(stopMarkers.get(markerIndex)?.getElement());
   if (!icon) return;
   if (recency > 0) icon.style.setProperty("--recency", recency.toFixed(3));
   else icon.style.removeProperty("--recency");
@@ -1811,10 +1823,26 @@ function setMarkerRecency(markerIndex, recency) {
 
 function paintStopMarkers(index) {
   const highlighted = nearestSampledIndex(index);
+  // Advancing one stop changes the state of one marker, not all of them, but
+  // every marker was being rewritten anyway. Each write lands on an element
+  // carrying a transition and a shadow, so the wasted ones were not free: they
+  // were most of the per-stop cost of playback on a phone.
   stopMarkers.forEach((marker, markerIndex) => {
     const element = marker.getElement();
-    element?.classList.toggle("stop-unvisited", markerIndex > index);
-    element?.querySelector(".map-stop-icon")?.classList.toggle("current", markerIndex === highlighted);
+    if (!element) return;
+
+    const unvisited = markerIndex > index;
+    if (element._bugaboutUnvisited !== unvisited) {
+      element.classList.toggle("stop-unvisited", unvisited);
+      element._bugaboutUnvisited = unvisited;
+    }
+
+    const isCurrent = markerIndex === highlighted;
+    const icon = iconFor(element);
+    if (icon && icon._bugaboutCurrent !== isCurrent) {
+      icon.classList.toggle("current", isCurrent);
+      icon._bugaboutCurrent = isCurrent;
+    }
   });
 
   // Only the markers inside the trail window are touched, so this stays cheap
