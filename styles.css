@@ -2929,6 +2929,27 @@ html[data-booting="journey"] .empty-state {
     backdrop-filter: none;
   }
 
+  /* The same finding, applied to the map itself. A CSS filter on the tile pane
+     makes the browser re-filter a full-screen region of images whenever that
+     pane moves, and playback moves it continuously — GPU work that does not
+     show up as CPU, which is why the device profile read 10fps at 11% CPU with
+     script at 1.1%. The basemap loses its theme tint on touch devices; the
+     route, markers and everything above the tiles keep theirs. */
+  .leaflet-tile-pane {
+    filter: none;
+  }
+
+  .map-underlay {
+    filter: none;
+  }
+
+  /* An infinite animation on an element sitting over the moving map, repainting
+     forever for decoration. */
+  .bug-marker::after {
+    animation: none;
+    opacity: 0;
+  }
+
   .map-button,
   .map-toggle {
     background: rgb(from var(--panel) r g b / 0.98);
