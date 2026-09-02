@@ -2545,17 +2545,6 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.dialog-note {
-  margin: 23px 0 0;
-  padding: 13px 15px;
-  border-radius: var(--radius-sm);
-  color: var(--green-dark);
-  background: var(--mint);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
 .dialog-close {
   position: absolute;
   top: 15px;
