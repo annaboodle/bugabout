@@ -62,12 +62,10 @@ html {
 
 body {
   min-width: 320px;
-  /* dvh, with vh as the fallback: iOS reports `vh` against the viewport with
-     browser chrome hidden, so inside an in-app browser a 100vh shell is taller
-     than the screen showing it. That handed the splash a page-worth of phantom
-     scroll and pushed the header out of view. */
+  /* Deliberately vh, not dvh: dvh is recomputed every time iOS collapses or
+     restores its toolbar, so a dvh-sized full-height container relayouts in the
+     middle of a scroll. See the mobile playback note in AGENTS.md. */
   min-height: 100vh;
-  min-height: 100dvh;
   margin: 0;
   background:
     var(--glow),
@@ -446,7 +444,6 @@ html:has(dialog[open]) body {
 .app-shell {
   width: min(1540px, 100%);
   min-height: 100vh;
-  min-height: 100dvh;
   margin: 0 auto;
   padding: 0 26px 28px;
   display: flex;
@@ -2655,7 +2652,6 @@ html[data-booting="journey"] .empty-state {
 @media (min-width: 781px) {
   .app-shell {
     height: 100vh;
-    height: 100dvh;
     /* Floor it. `.journey-workspace` clips (it needs overflow:hidden for its
        rounded corners), so once the map row hits its 360px minimum a shorter
        window would cut the player card off with no way to scroll to it. Below
@@ -2784,17 +2780,6 @@ html[data-booting="journey"] .empty-state {
 
   .journey-sidebar {
     display: contents;
-  }
-
-  /* The log becomes its own scroller here. The page is the scroller on mobile
-     and the log sits under the map, so an active card drifting down the list
-     drifts off screen, and the only way to follow it is to scroll the map away.
-     Bounded, the list can hold that card at its own top instead. */
-  .stop-list {
-    max-height: 46dvh;
-    min-height: 240px;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
   }
 
   /* display: contents drops the sidebar's own box, so the log carries the

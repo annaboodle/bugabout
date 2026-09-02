@@ -833,37 +833,6 @@ function scrollPlaceToRest(placeItem) {
   scroller.scrollTo({ top: scroller.scrollTop + drift, behavior: scrollBehavior() });
 }
 
-// Holds the active card near the top of the log as playback moves through it.
-// Instant while playing — a smooth scroll cannot settle between stops on a long
-// journey, and never arrives.
-//
-// It holds a band rather than re-pinning every stop, the same way the map camera
-// holds a frame. Scrolling on every index cost 30ms of forced layout per stop at
-// 17 stops a second — each scroll dirtied layout that the next stop's measuring
-// had to resolve — which saturated a phone's main thread and left play, pause,
-// the speed control and the map buttons all unresponsive during playback.
-function pinLogToCurrentStop(index) {
-  // Everything here that can be decided without touching layout is decided
-  // first. `logScroller` reads scrollHeight and clientHeight, both of which
-  // force a reflow, and this runs on every index change in every layout — so
-  // asking it first cost the desktop the same reflow it cost the phone.
-  if (!window.matchMedia("(max-width: 780px)").matches) return;
-  // A windowed list already opens on the current stop, so there is nothing to
-  // hold; the gap row says so without measuring anything.
-  if (els.stopList.querySelector("[data-gap]")) return;
-  const row = els.stopList.querySelector(`[data-stop="${index}"]`);
-  if (!row) return;
-  const scroller = logScroller();
-  if (!scroller || scroller !== els.stopList) return;
-  const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  // Already in the top third: leave it alone.
-  if (drift >= 0 && drift < scroller.clientHeight / 3) return;
-  scroller.scrollTo({
-    top: scroller.scrollTop + drift,
-    behavior: state.playing ? "auto" : scrollBehavior(),
-  });
-}
-
 // Same desktop-only rule as scrollLogToTop, for the same reason: on mobile the
 // page is the scroller, so pulling a row into view drags the map off screen —
 // exactly what someone watching playback does not want.
@@ -887,11 +856,6 @@ function returnLogHome() {
 function scrollLogToStop(index) {
   const scroller = logScroller();
   if (!scroller) return;
-  // The list scroller holds the card at its top; the sidebar only reveals it.
-  if (scroller === els.stopList) {
-    pinLogToCurrentStop(index);
-    return;
-  }
   // "nearest" stops the moment the row's edge meets the frame, which on the
   // final stop leaves the sidebar's 30px bottom padding below the fold and the
   // last card jammed against the edge. Go all the way down instead.
@@ -1961,7 +1925,6 @@ function setProgress(value, options = {}) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
     if (options.scroll) scrollLogToStop(index);
-    else pinLogToCurrentStop(index);
   }
 }
 
