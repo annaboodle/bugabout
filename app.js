@@ -492,11 +492,23 @@ function buildPlaceTree() {
 
 // A window into one list of journey indexes. Washington alone holds over 1,500
 // stops, so an expanded group needs the same bounded rendering as the flat list.
+// The window's start is quantised, so it advances in steps rather than tracking
+// every stop. It used to re-anchor on each one, and since the render signature
+// is built from these bounds that meant `buildStopList` rewriting all 64 rows
+// through innerHTML about seventeen times a second — tens of kilobytes of HTML
+// parsed, styled and laid out per second. A short journey is not windowed at all
+// and so never paid this, which is why an 18-stop bug played fine on a phone
+// where a 2,483-stop one locked every button on the page. Stepping cuts those
+// rebuilds by eight and leaves the active card within a few rows of the top.
+const LOG_WINDOW_STEP = 8;
+
 function indexWindow(indexes, centerIndex) {
   const size = LOG_WINDOW + logExpandBefore + logExpandAfter;
   if (indexes.length <= Math.max(120, size)) return { start: 0, end: indexes.length };
   const position = Math.max(0, indexes.indexOf(centerIndex));
-  let start = clamp(position - logExpandBefore, 0, indexes.length - size);
+  const lastStart = indexes.length - size;
+  let start = clamp(position - logExpandBefore, 0, lastStart);
+  start = Math.min(lastStart, Math.floor(start / LOG_WINDOW_STEP) * LOG_WINDOW_STEP);
   if (logWindowStart !== null) {
     const pinned = clamp(logWindowStart, 0, indexes.length - size);
     if (position >= pinned && position < pinned + size) start = pinned;
@@ -1964,21 +1976,42 @@ function playbackDuration() {
   return clamp(12000 + 2800 * Math.sqrt(journey.length), 12000, 150000);
 }
 
+// Playback advances every frame but only *renders* on a budget. A rendered frame
+// restyles the route, rewrites the readouts and, when the stop changes, rebuilds
+// the log window and repaints up to MARKER_BUDGET markers. Sixty of those a
+// second is affordable on a desktop and is not on a phone: the main thread stays
+// busy enough that iOS stops delivering taps altogether — every button on the
+// page goes dead while the map still pans, because gestures are compositor-driven
+// and a tap needs a click the browser has given up on.
+//
+// Progress still accumulates from the real elapsed time, so the journey takes
+// exactly as long either way; only the number of repaints changes.
+const RENDER_INTERVAL_MS = window.matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 0;
+let pendingProgress = null;
+let lastRenderTime = 0;
+
 function tick(time) {
   if (!state.playing) return;
   if (state.lastTime === null) state.lastTime = time;
   const delta = time - state.lastTime;
   state.lastTime = time;
   const unitsPerMillisecond = (maxProgress / playbackDuration()) * state.speed;
-  const nextProgress = state.progress + delta * unitsPerMillisecond;
+  const nextProgress = (pendingProgress ?? state.progress) + delta * unitsPerMillisecond;
 
   if (nextProgress >= maxProgress) {
+    pendingProgress = null;
     setProgress(maxProgress, { force: true, scroll: true });
     pause();
     return;
   }
 
-  setProgress(nextProgress);
+  if (time - lastRenderTime >= RENDER_INTERVAL_MS) {
+    lastRenderTime = time;
+    pendingProgress = null;
+    setProgress(nextProgress);
+  } else {
+    pendingProgress = nextProgress;
+  }
   state.frame = requestAnimationFrame(tick);
 }
 
@@ -1993,6 +2026,8 @@ function play() {
   state.playing = true;
   syncSound();
   state.lastTime = null;
+  pendingProgress = null;
+  lastRenderTime = 0;
   els.playButton.classList.add("playing");
   els.mapStage.classList.add("playing");
   els.playButton.setAttribute("aria-label", "Pause journey");
@@ -2001,6 +2036,7 @@ function play() {
 
 function pause() {
   state.playing = false;
+  pendingProgress = null;
   window.BugaboutBumblebee?.stop();
   state.lastTime = null;
   els.playButton.classList.remove("playing");
