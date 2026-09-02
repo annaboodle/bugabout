@@ -899,9 +899,36 @@ function returnLogHome() {
   scrollLogToTop();
 }
 
+// Holds the active card at the top of the log as playback moves through it, on
+// mobile where the list is its own scroller. Guards run cheapest-first: both of
+// these decide without touching layout, and `logScroller` reads scrollHeight and
+// clientHeight, which force a reflow.
+function pinLogToCurrentStop(index) {
+  if (!window.matchMedia("(max-width: 780px)").matches) return;
+  // A windowed list already opens on the current stop, so there is nothing to
+  // hold; the gap row says so without measuring anything.
+  if (els.stopList.querySelector("[data-gap]")) return;
+  const row = els.stopList.querySelector(`[data-stop="${index}"]`);
+  if (!row) return;
+  const scroller = logScroller();
+  if (!scroller || scroller !== els.stopList) return;
+  const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  // Already in the top third: leave it alone rather than scrolling every stop.
+  if (drift >= 0 && drift < scroller.clientHeight / 3) return;
+  scroller.scrollTo({
+    top: scroller.scrollTop + drift,
+    behavior: state.playing ? "auto" : scrollBehavior(),
+  });
+}
+
 function scrollLogToStop(index) {
   const scroller = logScroller();
   if (!scroller) return;
+  // The list scroller holds the card at its top; the sidebar only reveals it.
+  if (scroller === els.stopList) {
+    pinLogToCurrentStop(index);
+    return;
+  }
   // "nearest" stops the moment the row's edge meets the frame, which on the
   // final stop leaves the sidebar's 30px bottom padding below the fold and the
   // last card jammed against the edge. Go all the way down instead.
@@ -1040,10 +1067,7 @@ function routeFitBounds() {
 // a dot, so the route bent through caches nothing could be clicked on. Markers
 // are drawn for what is actually on screen instead, so zooming in reveals every
 // stop in view and the budget still bounds the work.
-// Halved where the pointer is coarse: each marker is a bordered, shadowed circle
-// with a transition, and compositing 260 of them over an animating map is work a
-// phone does not have to spare during playback.
-const MARKER_BUDGET = window.matchMedia("(pointer: coarse)").matches ? 50 : 260;
+const MARKER_BUDGET = 260;
 
 function visibleStopPositions() {
   const bounds = map.getBounds().pad(0.2);
@@ -2079,6 +2103,7 @@ function setProgress(value, options = {}) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
     if (options.scroll) scrollLogToStop(index);
+    else pinLogToCurrentStop(index);
   }
 }
 

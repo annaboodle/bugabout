@@ -2796,6 +2796,17 @@ html[data-booting="journey"] .empty-state {
     display: contents;
   }
 
+  /* The log is its own scroller here. The page is the scroller on mobile and the
+     log sits under the map, so an active card drifting down the list drifts off
+     screen with no way to follow it but to scroll the map away. Bounded, the
+     list holds that card at its own top instead. */
+  .stop-list {
+    max-height: 46vh;
+    min-height: 240px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
   /* display: contents drops the sidebar's own box, so the log carries the
      padding and paper texture itself. */
   .stops-section {
@@ -2908,101 +2919,6 @@ html[data-booting="journey"] .empty-state {
   .journey-sidebar {
     padding: 22px 17px 28px;
   }
-}
-
-/* Measured on a phone with Safari's timeline: playback ran at 10fps with median
-   97.6ms frames while the main thread sat at 11% CPU and script accounted for
-   1.1% of the time. The cost was compositing — single composites up to 91.5ms.
-   These five backdrop blurs all sit *over* the map, and a backdrop-filter is
-   recomputed every frame its backdrop moves; during playback the map moves
-   continuously, so all of them were being re-blurred forever. A short journey
-   re-frames the camera about five times where a long one does it constantly,
-   which is why an 18-stop bug played fine on the same device.
-
-   Dropped where the pointer is coarse, with the fills made near-opaque so the
-   controls still read as glass rather than as holes. */
-@media (pointer: coarse) {
-  .map-button,
-  .map-toggle,
-  .sound-menu,
-  .player-card {
-    backdrop-filter: none;
-  }
-
-  /* The same finding, applied to the map itself. A CSS filter on the tile pane
-     makes the browser re-filter a full-screen region of images whenever that
-     pane moves, and playback moves it continuously — GPU work that does not
-     show up as CPU, which is why the device profile read 10fps at 11% CPU with
-     script at 1.1%. The basemap loses its theme tint on touch devices; the
-     route, markers and everything above the tiles keep theirs. */
-  .leaflet-tile-pane {
-    filter: none;
-  }
-
-  .map-underlay {
-    filter: none;
-  }
-
-  /* An infinite animation on an element sitting over the moving map, repainting
-     forever for decoration. */
-  .bug-marker::after {
-    animation: none;
-    opacity: 0;
-  }
-
-  .map-button,
-  .map-toggle {
-    background: rgb(from var(--panel) r g b / 0.98);
-  }
-
-  .sound-menu,
-  .player-card {
-    background: var(--panel);
-  }
-}
-
-/* TEMPORARY: diagnostic switches, set from ?off= by the head script. Each one
-   removes a candidate cost so the phone can report a frame rate with it gone.
-   Remove this block, the head script and the build marker together. */
-
-/* anim — the same declarations the reduced-motion block uses, by attribute. */
-html[data-off~="anim"] *,
-html[data-off~="anim"] *::before,
-html[data-off~="anim"] *::after {
-  scroll-behavior: auto !important;
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-}
-
-/* deco — flat everything: no shadows, no gradient grounds, no paper texture. */
-html[data-off~="deco"] * {
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-
-html[data-off~="deco"] body,
-html[data-off~="deco"] .journey-sidebar,
-html[data-off~="deco"] .stops-section,
-html[data-off~="deco"] .journey-heading,
-html[data-off~="deco"] .stop-item.active .stop-button {
-  background-image: none !important;
-}
-
-html[data-off~="deco"] body {
-  background: var(--paper) !important;
-}
-
-/* map — the control. If the frame rate does not move with the map gone, the
-   map is not what is holding it down. */
-html[data-off~="map"] .map-stage #map,
-html[data-off~="map"] .map-stage .map-topbar {
-  visibility: hidden;
-}
-
-/* log — the rows are rebuilt as the bug advances; this drops them mid-playback. */
-html[data-off~="log"] .app-shell[data-state="journey"] .stop-list {
-  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
