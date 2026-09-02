@@ -1842,30 +1842,58 @@ function updateStops(index) {
   paintStopMarkers(index);
 }
 
+// Running totals for every prefix of the journey, built once. The readout used
+// to derive these by rescanning `journey.slice(0, index + 1)` — five passes and
+// six array allocations — on every frame of playback, sixty times a second. At
+// eighteen stops that is free; at 2,483 it is roughly 750,000 element
+// operations a second plus the garbage to match, which on a phone starved the
+// main thread badly enough that touches timed out and *every* button on the
+// page stopped responding while the map still panned. Prefixes make it O(1).
+let statsPrefix = [];
+
+function buildStatsPrefix() {
+  const countries = new Set();
+  const states = new Set();
+  let everyStopHasCountry = true;
+  let anyDerived = false;
+
+  statsPrefix = journey.map((stop) => {
+    if (stop.country) countries.add(stop.country);
+    else everyStopHasCountry = false;
+    if (stop.countrySource === "polygon" || stop.countrySource === "coast") anyDerived = true;
+    if (stop.country === "United States" && stop.region) states.add(stop.region);
+    return {
+      countries: countries.size,
+      states: states.size,
+      everyStopHasCountry,
+      anyDerived,
+    };
+  });
+}
+
 function updateStats(progress, index) {
-  const visited = journey.slice(0, index + 1);
-  const knownCountries = visited.map((stop) => stop.country).filter(Boolean);
-  const hasCountryData = knownCountries.length === index + 1;
-  const derived = hasCountryData && visited.some((stop) => stop.countrySource === "polygon" || stop.countrySource === "coast");
+  const at = statsPrefix[index];
   els.distanceStat.textContent = formatMiles(distanceAtProgress(progress));
-  const countryCount = new Set(knownCountries).size;
+
+  const hasCountryData = Boolean(at?.everyStopHasCountry);
+  const countryCount = at?.countries ?? 0;
   els.countryStat.textContent = hasCountryData ? String(countryCount) : "—";
   els.countryStatLabel.textContent = hasCountryData
     ? countryCount === 1
       ? "country"
       : "countries"
     : "countries not in KML";
+
   if (journeyHasStates) {
-    const states = new Set(
-      visited.filter((stop) => stop.country === "United States" && stop.region).map((stop) => stop.region),
-    );
-    els.stateStat.textContent = String(states.size);
-    els.stateStatLabel.textContent = states.size === 1 ? "state" : "states";
+    const stateCount = at?.states ?? 0;
+    els.stateStat.textContent = String(stateCount);
+    els.stateStatLabel.textContent = stateCount === 1 ? "state" : "states";
   }
   els.stateReadout.hidden = !journeyHasStates;
-  els.countryStatCard.title = derived
-    ? "Derived from stop coordinates using Natural Earth country boundaries, not included in the KML."
-    : "";
+  els.countryStatCard.title =
+    hasCountryData && at?.anyDerived
+      ? "Derived from stop coordinates using Natural Earth country boundaries, not included in the KML."
+      : "";
 }
 
 function updateRoute(progress) {
@@ -2386,6 +2414,7 @@ function loadJourneyData(data) {
   state.currentIndex = -1;
   state.activeBand = -1;
   journeyHasStates = journey.some((stop) => stop.country === "United States" && stop.region);
+  buildStatsPrefix();
   buildPlaceTree();
   state.logSignature = "";
   logExpandBefore = 0;
@@ -2494,6 +2523,7 @@ async function enrichCountries() {
   }
 
   if (!countriesChanged && !statesChanged) return;
+  buildStatsPrefix();
   buildPlaceTree();
   renderStopCount();
   renderJourneyStats();
