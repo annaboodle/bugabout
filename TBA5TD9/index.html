@@ -10,7 +10,7 @@
     <title>Captain_Cookie’s Mileage Tracker — Bugabout</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=3" />
     <link rel="stylesheet" href="/vendor/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=144" />
+    <link rel="stylesheet" href="/styles.css?v=146" />
     <script>window.BUGABOUT_BUG = "TBA5TD9";</script>
     <script>
       // TEMPORARY: applies the saved design style before first paint, so
@@ -244,6 +244,13 @@
           </div>
         </section>
       </main>
+
+      <!-- TEMPORARY: build marker, so a phone can be checked against the version
+           it is actually running. Filled in by app.js from the asset URLs, which
+           means it reports the HTML the browser used — a stale cached index.html
+           shows its own old numbers rather than pretending to be current.
+           Remove once the mobile playback problem is settled. -->
+      <p class="build-marker" id="buildMarker"></p>
     </div>
 
     <input
@@ -309,7 +316,7 @@
     <script src="/country-lookup.js?v=6"></script>
     <script src="/journey-link.js?v=5"></script>
     <script src="/bumblebee.js?v=2"></script>
-    <script src="/app.js?v=136"></script>
+    <script src="/app.js?v=137"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
     <script src="/livereload.js"></script>

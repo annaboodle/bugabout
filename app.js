@@ -3214,6 +3214,18 @@ function applyStyle(name) {
 els.stylePicker.value = document.documentElement.dataset.style || "notebook";
 els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
 
+// TEMPORARY: build marker. Read from the asset URLs rather than hardcoded, so it
+// cannot drift from what is actually loaded — and so a stale cached index.html
+// reports its own old versions instead of the current ones.
+(function showBuildMarker() {
+  const marker = document.querySelector("#buildMarker");
+  if (!marker) return;
+  const versionOf = (url) => new URL(url, location.href).searchParams.get("v") ?? "?";
+  const script = [...document.scripts].find((tag) => tag.src.includes("app.js"));
+  const sheet = [...document.styleSheets].map((s) => s.href).find((href) => href?.includes("styles.css"));
+  marker.textContent = `build ${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
+})();
+
 publishRouteRamp();
 initializeMap();
 
