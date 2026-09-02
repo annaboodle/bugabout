@@ -905,16 +905,15 @@ function returnLogHome() {
 // clientHeight, which force a reflow.
 function pinLogToCurrentStop(index) {
   if (!window.matchMedia("(max-width: 780px)").matches) return;
-  // A windowed list already opens on the current stop, so there is nothing to
-  // hold; the gap row says so without measuring anything.
-  if (els.stopList.querySelector("[data-gap]")) return;
   const row = els.stopList.querySelector(`[data-stop="${index}"]`);
   if (!row) return;
   const scroller = logScroller();
   if (!scroller || scroller !== els.stopList) return;
   const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  // Already in the top third: leave it alone rather than scrolling every stop.
-  if (drift >= 0 && drift < scroller.clientHeight / 3) return;
+  // Pinned, not merely kept in view. The window start is quantised to steps of
+  // eight, so without this the card walks eight rows — about 360px — down the
+  // list before the next rebuild snaps it back.
+  if (Math.abs(drift) < 2) return;
   scroller.scrollTo({
     top: scroller.scrollTop + drift,
     behavior: state.playing ? "auto" : scrollBehavior(),
