@@ -8,13 +8,13 @@
   if (!LOCAL_HOSTS.includes(global.location.hostname)) return;
 
   const WATCHED = [
-    "./",
-    "./app.js",
-    "./styles.css",
-    "./country-lookup.js",
-    "./journey-link.js",
-    "./kml-importer.js",
-    "./bumblebee.js",
+    "/",
+    "/app.js",
+    "/styles.css",
+    "/country-lookup.js",
+    "/journey-link.js",
+    "/kml-importer.js",
+    "/bumblebee.js",
   ];
   const INTERVAL_MS = 900;
 

@@ -3,6 +3,17 @@
 // deliberately does not emulate.
 
 import { spawn } from "node:child_process";
+
+function checkBugPages() {
+  return new Promise((resolve, reject) => {
+    const check = spawn(process.execPath, ["tools/build-bug-pages.mjs", "--check"], {
+      stdio: "inherit",
+    });
+    check.once("exit", (code) =>
+      code === 0 ? resolve() : reject(new Error("Bug pages are out of date.")),
+    );
+  });
+}
 import { createServer } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -223,6 +234,9 @@ if (!browser) {
       "document.querySelector('#summary')?.textContent || 'browser smoke tests passed'",
     );
     console.log(`Bugabout: ${summary}.`);
+    // The generated bug pages are committed, so a change to index.html that is
+    // not regenerated would ship a stale copy of the app at /<slug>/.
+    await checkBugPages();
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

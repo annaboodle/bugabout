@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Turn a geocaching trackable’s journey into an animated map. Watch the miles, countries and continents add up hop by hop. Follow that bug about!"
+      content="Follow Captain_Cookie’s Mileage Tracker about — an animated map of everywhere this geocaching trackable has been."
     />
-    <title>Bugabout — Follow your bug about</title>
-    <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png?v=3" />
-    <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=136" />
+    <title>Captain_Cookie’s Mileage Tracker — Bugabout</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=3" />
+    <link rel="stylesheet" href="/vendor/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css?v=136" />
+    <script>window.BUGABOUT_BUG = "TBA5TD9";</script>
     <script>
       // TEMPORARY: applies the saved design style before first paint, so
       // switching styles does not flash the default on every reload.
@@ -29,7 +30,7 @@
       <header class="site-header">
         <a class="brand" href="#" aria-label="Bugabout home">
           <span class="brand-mark" aria-hidden="true">
-            <img src="./assets/buggg.svg?v=1" width="324" height="287" alt="" />
+            <img src="/assets/buggg.svg?v=1" width="324" height="287" alt="" />
           </span>
           <span>
             <strong>Bugabout</strong>
@@ -285,7 +286,7 @@
           <strong>Choose “View in Google Earth”</strong> on the trackable’s page. This saves a <strong>.kml</strong> file to your downloads.
           <img
             class="dialog-shot"
-            src="./assets/google-earth-img.png?v=1"
+            src="/assets/google-earth-img.png?v=1"
             width="608"
             height="384"
             alt="The Trackable Options menu on a geocaching.com trackable page. Below Add a Log Entry, Edit This Trackable, Upload an Image and Print Info Sheet, the last item reads View in Google Earth."
@@ -296,14 +297,14 @@
       </ol>
     </dialog>
 
-    <script src="./vendor/leaflet.js"></script>
-    <script src="./kml-importer.js?v=3"></script>
-    <script src="./country-lookup.js?v=6"></script>
-    <script src="./journey-link.js?v=4"></script>
-    <script src="./bumblebee.js?v=2"></script>
-    <script src="./app.js?v=126"></script>
+    <script src="/vendor/leaflet.js"></script>
+    <script src="/kml-importer.js?v=3"></script>
+    <script src="/country-lookup.js?v=6"></script>
+    <script src="/journey-link.js?v=4"></script>
+    <script src="/bumblebee.js?v=2"></script>
+    <script src="/app.js?v=126"></script>
     <!-- Development only: reloads when a source file changes. Ignores itself on
          any non-local host, so it is inert in production. -->
-    <script src="./livereload.js"></script>
+    <script src="/livereload.js"></script>
   </body>
 </html>

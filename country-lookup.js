@@ -5,8 +5,11 @@
   // CSS and JS, but nothing invalidated these, so regenerating a boundary file
   // left browsers serving the old one. Bump when tools/ regenerates them.
   const DATA_VERSION = "2";
-  const COUNTRIES_URL = `./vendor/countries.json?v=${DATA_VERSION}`;
-  const STATES_URL = `./vendor/us-states.json?v=${DATA_VERSION}`;
+  // Root-absolute: the app also runs from a bug page at /<slug>/, where "./"
+  // would resolve inside that directory and the lookup would silently fail,
+  // leaving every stop without a country.
+  const COUNTRIES_URL = `/vendor/countries.json?v=${DATA_VERSION}`;
+  const STATES_URL = `/vendor/us-states.json?v=${DATA_VERSION}`;
 
   // Geocaching stops sit on shorelines, and the 50m country outline generalizes
   // the coast by a kilometre or two. 11% of the large fixture's stops land just
