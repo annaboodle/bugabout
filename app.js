@@ -817,6 +817,22 @@ function scrollLogToTop() {
   scroller.scrollTo({ top: 0, behavior: scrollBehavior() });
 }
 
+// Where an opened place comes to rest: a country at the top of the log, a state
+// directly beneath the country header that stays pinned above it.
+function scrollPlaceToRest(placeItem) {
+  const scroller = logScroller();
+  if (!scroller || !placeItem) return;
+  const countryHeader = placeItem.classList.contains("state-item")
+    ? placeItem.closest(".place-item[data-country]")?.querySelector(":scope > .place-button")
+    : null;
+  const drift =
+    placeItem.getBoundingClientRect().top -
+    scroller.getBoundingClientRect().top -
+    (countryHeader?.offsetHeight ?? 0);
+  if (Math.abs(drift) < 1) return;
+  scroller.scrollTo({ top: scroller.scrollTop + drift, behavior: scrollBehavior() });
+}
+
 // Holds the active card against the top of the log as playback moves through
 // it. Instant while playing — a smooth scroll cannot settle between stops on a
 // long journey, and never arrives.
@@ -2949,6 +2965,18 @@ els.stopList.addEventListener("click", (event) => {
     }
   }
   rebuildLogWithTransition(() => {}, { anchor: false });
+
+  // Opening a place should leave you looking at it. Collapsing whatever was open
+  // above can move it hundreds of pixels while the scroller stays where it was,
+  // so clicking a sibling of a large open group landed you somewhere unrelated
+  // to what you clicked. Re-found by name: the rebuild replaced the element.
+  if (!wasOpen) {
+    scrollPlaceToRest(
+      [...els.stopList.querySelectorAll(".place-item")].find((item) =>
+        isCountry ? item.dataset.country === name : item.dataset.state === name,
+      ),
+    );
+  }
 });
 
 els.logByTime.addEventListener("click", () => setLogMode("time"));
