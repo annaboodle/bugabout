@@ -740,10 +740,25 @@ function rebuildLogWithTransition(change, { anchor = true } = {}) {
   offsetLogScroll(drift);
 }
 
-// The sidebar scrolls on desktop; the page itself scrolls on mobile.
+// Whichever box is actually scrolling the log. On mobile the sidebar's own box
+// is dropped (display: contents) and the bounded list scrolls instead; on
+// desktop the list is unbounded and the sidebar around it scrolls. Checking the
+// list first means neither layout has to be named here.
+function logScroller() {
+  for (const element of [els.stopList, els.journeySidebar]) {
+    if (element && element.scrollHeight > element.clientHeight + 1) return element;
+  }
+  return null;
+}
+
+function scrollBehavior() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+// Falls back to the page only when nothing else scrolls the log.
 function offsetLogScroll(drift) {
-  const sidebar = els.journeySidebar;
-  if (sidebar.scrollHeight > sidebar.clientHeight + 1) sidebar.scrollTop += drift;
+  const scroller = logScroller();
+  if (scroller) scroller.scrollTop += drift;
   else window.scrollBy(0, drift);
 }
 
@@ -793,14 +808,26 @@ function animateStopSelection(index, topBefore) {
 // "Journey log" heading and the By time / By place toggle come back with it, and
 // the card sits right under them anyway once the window is collapsed.
 function scrollLogToTop() {
-  const sidebar = els.journeySidebar;
-  // Desktop only. On mobile the page is the scroller and the log sits below the
-  // map, which cannot share the screen with it, so there is nothing worth
-  // scrolling to and doing so would pull the map away as playback starts.
-  if (sidebar.scrollHeight <= sidebar.clientHeight + 1) return;
-  sidebar.scrollTo({
-    top: 0,
-    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+  // Only ever the log's own scroller, never the page: on mobile moving the page
+  // would pull the map away as playback starts.
+  const scroller = logScroller();
+  if (!scroller) return;
+  scroller.scrollTo({ top: 0, behavior: scrollBehavior() });
+}
+
+// Holds the active card against the top of the log as playback moves through
+// it. Instant while playing — a smooth scroll cannot settle between stops on a
+// long journey, and never arrives.
+function pinLogToCurrentStop(index) {
+  const scroller = logScroller();
+  if (!scroller || scroller !== els.stopList) return;
+  const row = scroller.querySelector(`[data-stop="${index}"]`);
+  if (!row) return;
+  const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  if (Math.abs(drift) < 1) return;
+  scroller.scrollTo({
+    top: scroller.scrollTop + drift,
+    behavior: state.playing ? "auto" : scrollBehavior(),
   });
 }
 
@@ -825,21 +852,23 @@ function returnLogHome() {
 }
 
 function scrollLogToStop(index) {
-  const sidebar = els.journeySidebar;
-  if (sidebar.scrollHeight <= sidebar.clientHeight + 1) return;
-  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ? "auto"
-    : "smooth";
+  const scroller = logScroller();
+  if (!scroller) return;
+  // The list scroller holds the card at its top; the sidebar only reveals it.
+  if (scroller === els.stopList) {
+    pinLogToCurrentStop(index);
+    return;
+  }
   // "nearest" stops the moment the row's edge meets the frame, which on the
   // final stop leaves the sidebar's 30px bottom padding below the fold and the
   // last card jammed against the edge. Go all the way down instead.
   if (index >= journey.length - 1) {
-    sidebar.scrollTo({ top: sidebar.scrollHeight, behavior });
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: scrollBehavior() });
     return;
   }
   els.stopList.querySelector(`[data-stop="${index}"]`)?.scrollIntoView({
     block: "nearest",
-    behavior,
+    behavior: scrollBehavior(),
   });
 }
 
@@ -1899,6 +1928,7 @@ function setProgress(value, options = {}) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
     if (options.scroll) scrollLogToStop(index);
+    else pinLogToCurrentStop(index);
   }
 }
 
