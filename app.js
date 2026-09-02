@@ -271,24 +271,6 @@ const compactDateFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 const toDate = (value) => new Date(`${value}T12:00:00Z`);
-// TEMPORARY: reads the ?off= switches the head script parsed onto <html>.
-// Remove with the build marker and the diagnostic CSS block.
-const switchedOff = (name) =>
-  (document.documentElement.dataset.off ?? "").split(" ").includes(name);
-
-// TEMPORARY: ?probe=raf runs a bare animation-frame loop that does nothing, so a
-// running loop can be tested on its own, without playback. ?loop=timer drives
-// playback from setInterval instead. The device reached 60fps with every visual
-// switch off and still dropped 90% of taps, so what is left to test is the loop
-// itself and the DOM it writes to, not how long a frame takes.
-const diagnosticParams = new URLSearchParams(location.search);
-const PROBE = diagnosticParams.get("probe") ?? "";
-const LOOP_MODE = diagnosticParams.get("loop") ?? "";
-
-if (PROBE === "raf") {
-  const spin = () => requestAnimationFrame(spin);
-  requestAnimationFrame(spin);
-}
 
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 const normalizeLongitude = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
@@ -1099,7 +1081,6 @@ function visibleStopPositions() {
 
 function refreshStopMarkers() {
   if (!map || !journey.length) return;
-  if (switchedOff("markers")) return;
   stopMarkers.forEach((marker) => map.removeLayer(marker));
   stopMarkers = new Map();
   trailedMarkers = new Map();
@@ -1216,7 +1197,6 @@ function showNearestBugCopy() {
 // polyline still covers all three world copies, because wrappedRouteLatLngs
 // returns a multi-part path.
 function buildRouteBands() {
-  if (switchedOff("route")) return;
   const segments = journey.length - 1;
   const bandCount = Math.max(1, Math.min(ROUTE_BANDS, segments));
   routeBands = [];
@@ -2090,19 +2070,17 @@ function setProgress(value, options = {}) {
   state.progress = progress;
   state.currentIndex = index;
 
-  if (!switchedOff("timeline")) {
-    els.timeline.value = String(progress);
-    els.timeline.style.setProperty(
-      "--progress",
-      `${maxProgress ? (progress / maxProgress) * 100 : 0}%`,
-    );
-  }
-  if (!switchedOff("bug")) updateRoute(progress);
-  if (!switchedOff("stats")) updateStats(progress, index);
+  els.timeline.value = String(progress);
+  els.timeline.style.setProperty(
+    "--progress",
+    `${maxProgress ? (progress / maxProgress) * 100 : 0}%`,
+  );
+  updateRoute(progress);
+  updateStats(progress, index);
 
   if (indexChanged || options.force) {
-    if (!switchedOff("story")) updateStory(index);
-    if (!switchedOff("stops")) updateStops(index);
+    updateStory(index);
+    updateStops(index);
     if (options.pan && map && !(followEnabled && followActive)) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
@@ -2151,31 +2129,11 @@ function tick(time) {
   if (time - lastRenderTime >= RENDER_INTERVAL_MS) {
     lastRenderTime = time;
     pendingProgress = null;
-    // TEMPORARY: ?off=progress runs the loop but does none of its work.
-    if (!switchedOff("progress")) setProgress(nextProgress);
-    else state.progress = nextProgress;
+    setProgress(nextProgress);
   } else {
     pendingProgress = nextProgress;
   }
-  scheduleTick();
-}
-
-// TEMPORARY: ?loop=timer drives playback from a timer rather than animation
-// frames. The arithmetic in tick is elapsed-time based either way, so the
-// journey still runs for its proper duration; only the scheduler changes.
-function scheduleTick() {
-  if (LOOP_MODE === "timer") {
-    state.frame = window.setTimeout(() => tick(performance.now()), RENDER_INTERVAL_MS || 16);
-    return;
-  }
   state.frame = requestAnimationFrame(tick);
-}
-
-function cancelTick() {
-  if (!state.frame) return;
-  if (LOOP_MODE === "timer") window.clearTimeout(state.frame);
-  else cancelAnimationFrame(state.frame);
-  state.frame = null;
 }
 
 function play() {
@@ -2195,8 +2153,7 @@ function play() {
   els.mapStage.classList.add("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Pause journey");
-  // TEMPORARY: ?off=tick shows the playing state but never starts the loop.
-  if (!switchedOff("tick")) scheduleTick();
+  state.frame = requestAnimationFrame(tick);
 }
 
 function pause() {
@@ -2208,7 +2165,8 @@ function pause() {
   els.mapStage.classList.remove("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Play journey");
-  cancelTick();
+  if (state.frame) cancelAnimationFrame(state.frame);
+  state.frame = null;
 }
 
 function renderTimelineLabels() {
@@ -2606,15 +2564,6 @@ function loadJourneyData(data) {
   journey = data.stops.map(normalizeStop).filter((stop) =>
     Number.isFinite(stop.lat) && Number.isFinite(stop.lng),
   );
-  // TEMPORARY: ?every=3 plays every third stop, to answer whether the cost is
-  // simply the number of them. journeyMeta is untouched, so the mileage,
-  // country and state totals stay exact.
-  const every = Number(new URLSearchParams(location.search).get("every"));
-  if (Number.isInteger(every) && every > 1 && journey.length > every) {
-    const last = journey.at(-1);
-    journey = journey.filter((_, index) => index % every === 0);
-    if (journey.at(-1) !== last) journey.push(last);
-  }
   if (!journey.length) throw new Error("No valid mapped stops were found.");
 
   setAppState("journey");
@@ -3453,119 +3402,6 @@ function applyStyle(name) {
 
 els.stylePicker.value = document.documentElement.dataset.style || "notebook";
 els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
-
-// TEMPORARY: build marker plus a tap counter, while mobile playback is broken.
-// The versions are read from the asset URLs rather than hardcoded, so a stale
-// cached index.html reports its own old numbers instead of claiming to be
-// current. The counters answer the question I cannot answer from a desktop:
-// whether a tap reaches the page at all during playback.
-//
-//   d: pointerdown   u: pointerup   c: click
-//
-// If d climbs while c does not, the browser is suppressing the click — the page
-// moved under the finger, or something cancelled it. If all three climb and
-// nothing happens, the events arrive and the handlers are the problem.
-(function showBuildMarker() {
-  const marker = document.querySelector("#buildMarker");
-  if (!marker) return;
-  const versionOf = (url) => new URL(url, location.href).searchParams.get("v") ?? "?";
-  const script = [...document.scripts].find((tag) => tag.src.includes("app.js"));
-  const sheet = [...document.styleSheets].map((s) => s.href).find((href) => href?.includes("styles.css"));
-  const build = `${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
-
-  // d/u/c/x: pointerdown, pointerup, click, pointercancel.
-  // why: what the last gesture looked like, which is what separates the
-  // remaining explanations for a pointerup that produces no click —
-  //   dy   page scroll during the gesture (non-zero means the browser
-  //        reasonably treated it as a scroll and suppressed the click)
-  //   tgt  whether pointerup landed on the same element as pointerdown
-  //   pd   whether anything called preventDefault on the pointerdown
-  const counts = { d: 0, u: 0, c: 0, x: 0 };
-  let why = "";
-  let down = null;
-
-  // Frames per second, counted in its own loop. This is the instrument the
-  // switches are judged by: the phone measured 10fps while its CPU sat at 11%,
-  // so the question for each switch is whether that number moves.
-  let frames = 0;
-  let fps = 0;
-  let fpsSince = performance.now();
-  const countFrame = (now) => {
-    frames += 1;
-    if (now - fpsSince >= 500) {
-      fps = Math.round((frames * 1000) / (now - fpsSince));
-      frames = 0;
-      fpsSince = now;
-    }
-    requestAnimationFrame(countFrame);
-  };
-  requestAnimationFrame(countFrame);
-
-  const paint = () => {
-    const landed = counts.d ? Math.round((counts.c / counts.d) * 100) : 100;
-    const off = document.documentElement.dataset.off;
-    const mode = [PROBE && `probe:${PROBE}`, LOOP_MODE && `loop:${LOOP_MODE}`]
-      .filter(Boolean)
-      .join(" ");
-    marker.textContent =
-      `${build} · ${fps}fps · taps ${counts.c}/${counts.d} (${landed}%)` +
-      `${state.playing ? " ▶" : ""}${mode ? ` · ${mode}` : ""}` +
-      `${off ? ` · off:${off.replace(/ /g, ",")}` : ""}${why ? ` · ${why}` : ""}`;
-  };
-
-  const label = (node) =>
-    node instanceof Element ? node.tagName.toLowerCase() + (node.id ? `#${node.id}` : "") : "?";
-
-  window.addEventListener("pointerdown", (event) => {
-    counts.d += 1;
-    down = { target: event.target, y: window.scrollY, at: performance.now(), onControl: onAControl(event.target) };
-    // Read after the event finishes, so listeners downstream have had their say.
-    window.setTimeout(() => {
-      if (down) down.prevented = event.defaultPrevented;
-    }, 0);
-    paint();
-  }, { capture: true, passive: true });
-
-  // Aggregate counts mix button taps with map pans, so keep a short history of
-  // individual gestures instead. Each token is one gesture on a control:
-  //   ✓ ended in a click   ✗ ended in pointerup with no click   X cancelled
-  // followed by the page scroll during it.
-  const history = [];
-  const remember = (token) => {
-    history.push(token);
-    if (history.length > 6) history.shift();
-    why = history.join(" ");
-  };
-  const onAControl = (node) => node instanceof Element && Boolean(node.closest("button, a, [data-open]"));
-
-  window.addEventListener("pointerup", (event) => {
-    counts.u += 1;
-    if (down?.onControl) {
-      const dy = Math.round(window.scrollY - down.y);
-      down.settled = window.setTimeout(() => {
-        remember(`✗${dy}${event.target === down.target ? "" : "≠"}`);
-        paint();
-      }, 350);
-    }
-    paint();
-  }, { capture: true, passive: true });
-
-  window.addEventListener("pointercancel", () => {
-    counts.x += 1;
-    if (down?.onControl) remember("X");
-    paint();
-  }, { capture: true, passive: true });
-
-  window.addEventListener("click", () => {
-    counts.c += 1;
-    // The click arrived, so the pending "no click" verdict is wrong.
-    if (down?.settled) { window.clearTimeout(down.settled); remember("✓"); }
-    paint();
-  }, { capture: true, passive: true });
-
-  paint();
-  window.setInterval(paint, 500);
-})();
 
 publishRouteRamp();
 initializeMap();
