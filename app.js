@@ -305,6 +305,9 @@ let routeRamp = ["#3a2a9e", "#d92d5e"];
 
 // Same reason as the ramp: the value lives in CSS so a theme owns it, but the
 // canvas renderer needs it as a plain colour.
+// Was `.route-preview { opacity: 0.38 }` before the route moved to canvas.
+const ROUTE_PREVIEW_OPACITY = 0.38;
+
 function routePreviewColor() {
   return (
     getComputedStyle(document.documentElement).getPropertyValue("--route-preview").trim() ||
@@ -315,7 +318,7 @@ function routePreviewColor() {
 // The preview used to be hidden by `.map-stage.playing .route-preview`, which a
 // canvas layer never sees.
 function syncRoutePreview() {
-  routeLine?.setStyle({ opacity: state.playing ? 0 : 1 });
+  routeLine?.setStyle({ opacity: state.playing ? 0 : ROUTE_PREVIEW_OPACITY });
 }
 
 function readRouteStops() {
@@ -1157,7 +1160,9 @@ function buildMapJourney() {
     // read here instead of being applied by the stylesheet.
     color: routePreviewColor(),
     weight: 3,
-    opacity: state.playing ? 0 : 1,
+    // 0.38 was `.route-preview`'s CSS opacity. A canvas layer never saw it, so
+    // the unvisited route drew at full strength and read far darker than it had.
+    opacity: state.playing ? 0 : ROUTE_PREVIEW_OPACITY,
     dashArray: "2 9",
     lineCap: "round",
     interactive: false,

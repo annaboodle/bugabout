@@ -451,8 +451,23 @@ button {
   }
 }
 
+/* Inert while the map uses `preferCanvas` — a canvas layer has no element for
+   this to reach, and the colour is read from the same custom property in JS
+   (`routePreviewColor`). Kept so the rule still exists if the renderer ever
+   goes back to SVG. */
 .route-preview {
   stroke: var(--route-preview);
+}
+
+/* A modal traps focus but not scrolling: behind an open dialog the page still
+   scrolled under the backdrop, which on mobile — where the page is the scroller
+   — meant the journey slid away while a dialog sat on top of it. Removed during
+   the tap-bug hunt on a hunch and restored once the real cause was found; it was
+   never implicated. Verify with a real gesture, not scrollTo, which moves the
+   page straight past `overflow: hidden`. */
+html:has(dialog[open]),
+html:has(dialog[open]) body {
+  overflow: hidden;
 }
 
 .app-shell {
@@ -1818,13 +1833,14 @@ html[data-booting="journey"] .empty-state {
   stroke-linecap: round;
 }
 
-.route-preview,
+/* Markers only. The route preview is a canvas layer now, so its opacity is set
+   in JS (ROUTE_PREVIEW_OPACITY) — leaving it here silently drew it at full
+   strength, which read as a much darker dotted line. */
 .leaflet-marker-icon.stop-unvisited {
   opacity: 0.38;
   transition: opacity 320ms ease;
 }
 
-.map-stage.playing .route-preview,
 .map-stage.playing .leaflet-marker-icon.stop-unvisited {
   opacity: 0;
   pointer-events: none;
