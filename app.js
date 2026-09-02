@@ -3040,6 +3040,14 @@ function updatePlacesScroll() {
 
 els.placesList.addEventListener("scroll", updatePlacesScroll, { passive: true });
 els.placesText.addEventListener("scroll", updatePlacesScroll, { passive: true });
+
+// The body's height is capped against the viewport, so anything that resizes the
+// viewport changes whether there is more to scroll to. In an in-app browser that
+// happens mid-read, when the chrome collapses — the fade would otherwise keep
+// whatever answer was true at the moment the dialog opened.
+window.addEventListener("resize", () => {
+  if (els.placesDialog.open) updatePlacesScroll();
+});
 window.addEventListener(
   "resize",
   () => {

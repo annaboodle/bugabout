@@ -934,6 +934,18 @@ button {
   scroll-snap-align: start;
 }
 
+/* The row is a rounded scroller but its tiles were square, so at each end the
+   fill, the 1px ring and the focus outline all cut straight across the
+   container's corner. Inset by the container's own 1px border so the two curves
+   sit concentric rather than merely close. */
+.journey-stats > div:first-child {
+  border-radius: calc(var(--radius-sm) - 1px) 0 0 calc(var(--radius-sm) - 1px);
+}
+
+.journey-stats > div:last-child {
+  border-radius: 0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0;
+}
+
 /* Openable tiles are tinted at rest, not only on hover: hover states are
    invisible until the pointer is already there, and absent on touch. */
 .journey-stats > div[data-open] {
@@ -2399,7 +2411,7 @@ button {
   z-index: 1;
   left: 0;
   right: 11px;
-  height: 34px;
+  height: 22px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 170ms ease;
@@ -2422,6 +2434,7 @@ button {
 
 .places-text {
   max-height: min(52vh, 440px);
+  max-height: min(520px, calc(100dvh - 180px));
   overflow-y: auto;
   padding: 0 14px 0 0;
   font-size: 14px;
@@ -2444,7 +2457,11 @@ button {
 }
 
 .places-list {
+  /* dvh, not vh: on iOS `vh` measures the viewport with browser chrome hidden,
+     so inside an in-app browser (Messenger, Instagram) a vh-capped dialog can be
+     taller than the screen actually showing it. The vh line is the fallback. */
   max-height: min(52vh, 440px);
+  max-height: min(520px, calc(100dvh - 180px));
   margin: 0;
   /* Keeps the rows and their rules clear of the scrollbar. */
   padding: 0 14px 0 0;
