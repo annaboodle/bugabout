@@ -780,7 +780,7 @@ button {
   margin: 14px 0 8px;
   font-family: var(--font-display);
   font-size: 29px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.06;
 }
@@ -1105,7 +1105,7 @@ button {
   margin: 0;
   font-family: var(--font-display);
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -2309,15 +2309,13 @@ button {
   color: var(--coral);
 }
 
-.product-dialog .dialog-note {
-  margin-top: 20px;
-}
-
+/* Inline-block, not inline-flex. A flex container underlines each of its items
+   separately, so the rule broke across the gap and skipped the arrow entirely;
+   inline layout draws one continuous line across the text, the space and the
+   arrow together. */
 .product-dialog-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 17px;
+  display: inline-block;
+  margin-top: 20px;
   padding: 0;
   color: var(--coral-dark);
   background: transparent;
@@ -2325,10 +2323,21 @@ button {
   font-weight: 800;
 }
 
+/* Padding, not margin: a parent's underline is painted across an inline child's
+   padding but breaks across its margin, which left the arrow underlined
+   separately with a gap in front of it. */
+.product-dialog-link span {
+  padding-left: 6px;
+}
+
+/* A painted rule, not text-decoration. Decoration is drawn per text run, so it
+   broke across the trailing space and the arrow's padding and left the icon
+   underlined on its own; a background gradient spans the whole inline box. */
 .product-dialog-link:hover {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 1px;
 }
 
 .dialog-steps {
