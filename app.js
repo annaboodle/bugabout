@@ -3214,16 +3214,35 @@ function applyStyle(name) {
 els.stylePicker.value = document.documentElement.dataset.style || "notebook";
 els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
 
-// TEMPORARY: build marker. Read from the asset URLs rather than hardcoded, so it
-// cannot drift from what is actually loaded — and so a stale cached index.html
-// reports its own old versions instead of the current ones.
+// TEMPORARY: build marker plus a tap counter, while mobile playback is broken.
+// The versions are read from the asset URLs rather than hardcoded, so a stale
+// cached index.html reports its own old numbers instead of claiming to be
+// current. The counters answer the question I cannot answer from a desktop:
+// whether a tap reaches the page at all during playback.
+//
+//   d: pointerdown   u: pointerup   c: click
+//
+// If d climbs while c does not, the browser is suppressing the click — the page
+// moved under the finger, or something cancelled it. If all three climb and
+// nothing happens, the events arrive and the handlers are the problem.
 (function showBuildMarker() {
   const marker = document.querySelector("#buildMarker");
   if (!marker) return;
   const versionOf = (url) => new URL(url, location.href).searchParams.get("v") ?? "?";
   const script = [...document.scripts].find((tag) => tag.src.includes("app.js"));
   const sheet = [...document.styleSheets].map((s) => s.href).find((href) => href?.includes("styles.css"));
-  marker.textContent = `build ${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
+  const build = `${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
+
+  const counts = { d: 0, u: 0, c: 0 };
+  const paint = () =>
+    (marker.textContent = `${build} · d${counts.d} u${counts.u} c${counts.c}${state.playing ? " ▶" : ""}`);
+  // Capture phase on the window, so nothing downstream can hide these from the
+  // count by stopping propagation.
+  for (const [type, key] of [["pointerdown", "d"], ["pointerup", "u"], ["click", "c"]]) {
+    window.addEventListener(type, () => { counts[key] += 1; paint(); }, { capture: true, passive: true });
+  }
+  paint();
+  window.setInterval(paint, 500);
 })();
 
 publishRouteRamp();
