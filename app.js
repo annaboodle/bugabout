@@ -271,6 +271,10 @@ const compactDateFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 const toDate = (value) => new Date(`${value}T12:00:00Z`);
+// TEMPORARY: reads the ?off= switches the head script parsed onto <html>.
+// Remove with the build marker and the diagnostic CSS block.
+const switchedOff = (name) =>
+  (document.documentElement.dataset.off ?? "").split(" ").includes(name);
 
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 const normalizeLongitude = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
@@ -732,6 +736,10 @@ function openNewGapRows(previousKeys) {
 }
 
 function buildStopList(centerIndex = 0, force = false) {
+  // TEMPORARY: ?off=loglist freezes the log while the journey plays, so the
+  // question "is it the list teardown that breaks taps on iOS" can be answered
+  // in one gesture instead of guessed at. Remove with the build marker.
+  if (state.playing && switchedOff("loglist")) return;
   const signature = logSignature(centerIndex);
   if (!force && signature === state.logSignature) return;
   state.logSignature = signature;
@@ -3493,6 +3501,119 @@ function applyStyle(name) {
 
 els.stylePicker.value = document.documentElement.dataset.style || "notebook";
 els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
+
+// TEMPORARY: build marker plus a tap counter, while By place playback is broken
+// on iOS. The build is read from the asset URLs rather than hardcoded, so a
+// stale cached index.html reports its own old numbers instead of claiming to be
+// current. The counters answer the question a desktop cannot:
+//
+//   d: pointerdown   u: pointerup   c: click
+//
+// If d climbs while c does not, the click is being suppressed rather than the
+// handler failing. The trailing history is per gesture on a control:
+//   ✓ ended in a click   ✗ pointerup with no click   X cancelled
+// with the page scroll during it, and ≠ when pointerup landed on a different
+// element than pointerdown — which is the click-synthesis signature.
+(function showBuildMarker() {
+  const marker = document.querySelector("#buildMarker");
+  if (!marker) return;
+  const versionOf = (url) => new URL(url, location.href).searchParams.get("v") ?? "?";
+  const script = [...document.scripts].find((tag) => tag.src.includes("app.js"));
+  const sheet = [...document.styleSheets]
+    .map((entry) => entry.href)
+    .find((href) => href?.includes("styles.css"));
+  const build = `${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
+
+  const counts = { d: 0, u: 0, c: 0, x: 0 };
+  let why = "";
+  let down = null;
+
+  let frames = 0;
+  let fps = 0;
+  let fpsSince = performance.now();
+  const countFrame = (now) => {
+    frames += 1;
+    if (now - fpsSince >= 500) {
+      fps = Math.round((frames * 1000) / (now - fpsSince));
+      frames = 0;
+      fpsSince = now;
+    }
+    requestAnimationFrame(countFrame);
+  };
+  requestAnimationFrame(countFrame);
+
+  const paint = () => {
+    const landed = counts.d ? Math.round((counts.c / counts.d) * 100) : 100;
+    const off = document.documentElement.dataset.off;
+    marker.textContent =
+      `${build} · ${fps}fps · taps ${counts.c}/${counts.d} (${landed}%)` +
+      `${state.playing ? " ▶" : ""} · ${logMode}` +
+      `${off ? ` · off:${off.replace(/ /g, ",")}` : ""}${why ? ` · ${why}` : ""}`;
+  };
+
+  const onAControl = (node) =>
+    node instanceof Element && Boolean(node.closest("button, a, [data-open]"));
+
+  const history = [];
+  const remember = (token) => {
+    history.push(token);
+    if (history.length > 6) history.shift();
+    why = history.join(" ");
+  };
+
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      counts.d += 1;
+      down = { target: event.target, y: window.scrollY, onControl: onAControl(event.target) };
+      paint();
+    },
+    { capture: true, passive: true },
+  );
+
+  window.addEventListener(
+    "pointerup",
+    (event) => {
+      counts.u += 1;
+      if (down?.onControl) {
+        const dy = Math.round(window.scrollY - down.y);
+        // A click follows pointerup, so the verdict waits to see whether it does.
+        down.settled = window.setTimeout(() => {
+          remember(`✗${dy}${event.target === down.target ? "" : "≠"}`);
+          paint();
+        }, 350);
+      }
+      paint();
+    },
+    { capture: true, passive: true },
+  );
+
+  window.addEventListener(
+    "pointercancel",
+    () => {
+      counts.x += 1;
+      if (down?.onControl) remember("X");
+      paint();
+    },
+    { capture: true, passive: true },
+  );
+
+  window.addEventListener(
+    "click",
+    () => {
+      counts.c += 1;
+      if (down?.settled) {
+        window.clearTimeout(down.settled);
+        remember("✓");
+      }
+      paint();
+    },
+    { capture: true, passive: true },
+  );
+
+  paint();
+  window.setInterval(paint, 500);
+})();
 
 publishRouteRamp();
 initializeMap();

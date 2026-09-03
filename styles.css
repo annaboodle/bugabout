@@ -3037,3 +3037,35 @@ html[data-booting="journey"] .empty-state {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* TEMPORARY: build marker, paired with #buildMarker in index.html. */
+.build-marker {
+  /* Fixed, because the point is to read it on a phone without scrolling to the
+     bottom of a 4,000px page. pointer-events: none is not optional here — this
+     exists to debug taps that do not land, and must not eat one itself. */
+  position: fixed;
+  z-index: 2000;
+  right: 8px;
+  bottom: 6px;
+  margin: 0;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: rgb(from var(--ink) r g b / 0.55);
+  background: rgb(from var(--panel) r g b / 0.82);
+  max-width: calc(100vw - 16px);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  pointer-events: none;
+}
+
+
+/* TEMPORARY: ?off=sticky drops the sticky place headers while leaving the list
+   rebuilding exactly as it does now. With ?off=loglist it separates the two
+   candidates — "the list is torn down" versus "sticky elements are torn down" —
+   which matters because By time removes three times as many elements per stop
+   and taps survive it. Remove with the build marker. */
+html[data-off~="sticky"] .place-item.open > .place-button {
+  position: static;
+}
