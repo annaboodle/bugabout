@@ -271,33 +271,6 @@ const compactDateFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 const toDate = (value) => new Date(`${value}T12:00:00Z`);
-// TEMPORARY: reads the ?off= switches the head script parsed onto <html>.
-// Remove with the build marker and the diagnostic CSS block.
-// Reads both the ?off= switches the head script parsed onto <html> and the
-// toggle panel, so a configuration can be changed on the phone without a reload
-// or a typed query string. Last time, one build the user could bisect unaided
-// turned nine round trips into minutes; this is that, without the URL editing.
-const switchedOff = (name) =>
-  (document.documentElement.dataset.off ?? "").split(" ").includes(name);
-
-const DIAGNOSTIC_SWITCHES = [
-  ["freeze", "hold DOM still while touching"],
-  ["rebuild", "no log rebuild while playing"],
-  ["sticky", "no sticky place headers"],
-  ["scroll", "no log pinning"],
-  ["markers", "no marker repaint"],
-  ["story", "no player card writes"],
-  ["stats", "no stat writes"],
-  ["map", "no map panning"],
-];
-
-function toggleSwitch(name) {
-  const current = new Set((document.documentElement.dataset.off ?? "").split(" ").filter(Boolean));
-  if (current.has(name)) current.delete(name);
-  else current.add(name);
-  document.documentElement.dataset.off = [...current].join(" ");
-}
-
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 const normalizeLongitude = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
 const worldOffsets = [-360, 0, 360];
@@ -758,10 +731,6 @@ function openNewGapRows(previousKeys) {
 }
 
 function buildStopList(centerIndex = 0, force = false) {
-  // TEMPORARY: ?off=loglist freezes the log while the journey plays, so the
-  // question "is it the list teardown that breaks taps on iOS" can be answered
-  // in one gesture instead of guessed at. Remove with the build marker.
-  if (state.playing && switchedOff("rebuild")) return;
   const signature = logSignature(centerIndex);
   if (!force && signature === state.logSignature) return;
   state.logSignature = signature;
@@ -970,7 +939,7 @@ let touchSettleTimer = 0;
 // True while a finger is down, and for a moment after, which is the window the
 // click has to survive.
 const domFrozen = () =>
-  !switchedOff("freeze") && state.playing && (pointersDown > 0 || touchSettleTimer !== 0);
+  state.playing && (pointersDown > 0 || touchSettleTimer !== 0);
 
 window.addEventListener(
   "pointerdown",
@@ -1039,9 +1008,6 @@ function pinLogToCurrentStop(index) {
   if (!row) return false;
   const scroller = logScroller();
   if (!scroller || scroller !== els.stopList) return false;
-  // TEMPORARY: ?off=pin stops playback scrolling the log at all, the other half
-  // of the failing pair alongside ?off=sticky. Remove with the build marker.
-  if (state.playing && switchedOff("scroll")) return true;
   const drift =
     row.getBoundingClientRect().top -
     scroller.getBoundingClientRect().top -
@@ -2081,7 +2047,6 @@ function setMarkerRecency(markerIndex, recency) {
 }
 
 function paintStopMarkers(index) {
-  if (switchedOff("markers")) return;
   const highlighted = nearestSampledIndex(index);
   // Advancing one stop changes the state of one marker, not all of them, but
   // every marker was being rewritten anyway. Each write lands on an element
@@ -2276,13 +2241,13 @@ function setProgress(value, options = {}) {
     `${maxProgress ? (progress / maxProgress) * 100 : 0}%`,
   );
   updateRoute(progress);
-  if (!switchedOff("stats")) updateStats(progress, index);
+  updateStats(progress, index);
 
   if (indexChanged || options.force) {
     followPlaceWhilePlaying(index);
-    if (!switchedOff("story")) updateStory(index);
-    if (!switchedOff("stops")) updateStops(index);
-    if (options.pan && map && !switchedOff("map") && !(followEnabled && followActive)) {
+    updateStory(index);
+    updateStops(index);
+    if (options.pan && map && !(followEnabled && followActive)) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
     // `scroll: false` picks the pin over a full scroll rather than leaving the
@@ -3615,231 +3580,6 @@ function applyStyle(name) {
 
 els.stylePicker.value = document.documentElement.dataset.style || "notebook";
 els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.value));
-
-// TEMPORARY: build marker plus a tap counter, while By place playback is broken
-// on iOS. The build is read from the asset URLs rather than hardcoded, so a
-// stale cached index.html reports its own old numbers instead of claiming to be
-// current. The counters answer the question a desktop cannot:
-//
-//   d: pointerdown   u: pointerup   c: click
-//
-// If d climbs while c does not, the click is being suppressed rather than the
-// handler failing. The trailing history is per gesture on a control:
-//   ✓ ended in a click   ✗ pointerup with no click   X cancelled
-// with the page scroll during it, and ≠ when pointerup landed on a different
-// element than pointerdown — which is the click-synthesis signature.
-// TEMPORARY: tap-toggles for the switches above, so several configurations can
-// be tried in one session on the phone. `freeze` is the candidate fix and starts
-// on, so its toggle turns it off; every other toggle turns a behaviour off.
-(function showSwitchPanel() {
-  const panel = document.querySelector("#switchPanel");
-  if (!panel) return;
-  for (const [name, hint] of DIAGNOSTIC_SWITCHES) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.switch = name;
-    button.title = hint;
-    button.textContent = name;
-    panel.append(button);
-  }
-  const paint = () => {
-    const off = new Set((document.documentElement.dataset.off ?? "").split(" ").filter(Boolean));
-    for (const button of panel.querySelectorAll("[data-switch]")) {
-      button.classList.toggle("is-off", off.has(button.dataset.switch));
-    }
-  };
-  panel.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-switch]");
-    if (!button) return;
-    toggleSwitch(button.dataset.switch);
-    paint();
-  });
-  paint();
-})();
-
-(function showBuildMarker() {
-  const marker = document.querySelector("#buildMarker");
-  if (!marker) return;
-  const versionOf = (url) => new URL(url, location.href).searchParams.get("v") ?? "?";
-  const script = [...document.scripts].find((tag) => tag.src.includes("app.js"));
-  const sheet = [...document.styleSheets]
-    .map((entry) => entry.href)
-    .find((href) => href?.includes("styles.css"));
-  const build = `${versionOf(script?.src ?? "")}.${versionOf(sheet ?? "")}`;
-
-  const counts = { d: 0, u: 0, c: 0, x: 0 };
-  let why = "";
-  let down = null;
-
-  // The experiment. iOS suppresses the click when it observes the DOM changing
-  // in reaction to the touch, so the question for every lost tap is simply
-  // whether anything mutated while the finger was down — and where. Counted over
-  // the whole document, because the mutation does not have to be near what was
-  // tapped.
-  let mutations = 0;
-  const mutatedIn = new Map();
-  const consume = (records) => {
-    mutations += records.length;
-    for (const record of records) {
-      const node = record.target instanceof Element ? record.target : record.target.parentElement;
-      const where = node?.closest("[class]")?.className?.split?.(" ")[0] ?? "?";
-      mutatedIn.set(where, (mutatedIn.get(where) ?? 0) + 1);
-    }
-  };
-  const watcher = new MutationObserver(consume);
-  const busiest = () => {
-    let top = "";
-    let best = 0;
-    for (const [where, n] of mutatedIn) if (n > best) [top, best] = [where, n];
-    return top;
-  };
-
-  let frames = 0;
-  let fps = 0;
-  let fpsSince = performance.now();
-  const countFrame = (now) => {
-    frames += 1;
-    if (now - fpsSince >= 500) {
-      fps = Math.round((frames * 1000) / (now - fpsSince));
-      frames = 0;
-      fpsSince = now;
-    }
-    requestAnimationFrame(countFrame);
-  };
-  requestAnimationFrame(countFrame);
-
-  // Only gestures that began on a control can produce a click, so the aggregate
-  // d/c ratio was diluted by every map drag. `ctrl` counts those alone.
-  const ctrl = { ok: 0, no: 0 };
-  const paint = () => {
-    // Never repaint inside a gesture. Writing this text is itself a DOM mutation
-    // in the window WebKit observes, so an unguarded marker would suppress the
-    // click it exists to measure — it did: ✗Lm1@build-marker.
-    if (pointersDown) return;
-    const off = document.documentElement.dataset.off;
-    // Whether the current stop even has a row to pin — the failing condition
-    // only exists when it does, which is why the bug must be inside the open
-    // place when the screen is read.
-    const pinned = els.stopList.querySelector(`[data-stop="${state.currentIndex}"]`)
-      ? "in-list"
-      : "no-row";
-    marker.textContent =
-      `${build} · ${fps}fps · ctrl ${ctrl.ok}✓ ${ctrl.no}✗ · ${logMode} ${pinned}` +
-      `${state.playing ? " ▶" : ""}${off ? ` · off:${off.replace(/ /g, ",")}` : ""}` +
-      `${why ? ` · ${why}` : ""}`;
-  };
-
-  const onAControl = (node) =>
-    node instanceof Element && Boolean(node.closest("button, a, [data-open]"));
-
-  const history = [];
-  const remember = (token) => {
-    history.push(token);
-    if (history.length > 6) history.shift();
-    why = history.join(" ");
-  };
-
-  // ✓/✗ then: L or n for whether the stop had a row, sN for log scroll under the
-  // finger, pN for page scroll, ≠ for pointerup on a different element. Every
-  // hypothesis left is about one of those, so each gesture answers for itself.
-  const verdict = (ok, event) => {
-    const logDy = Math.round(els.stopList.scrollTop - down.listTop);
-    const pageDy = Math.round(window.scrollY - down.y);
-    const held = Math.round(performance.now() - down.at);
-    return (
-      `${ok ? "✓" : "✗"}${down.inList ? "L" : "n"}` +
-      `m${down.mutations}${down.mutations ? `@${down.busiest}` : ""}` +
-      `${logDy ? `s${logDy}` : ""}${pageDy ? `p${pageDy}` : ""}` +
-      `${held > 400 ? `h${held}` : ""}${event && event.target !== down.target ? "≠" : ""}`
-    );
-  };
-
-  window.addEventListener(
-    "pointerdown",
-    (event) => {
-      counts.d += 1;
-      // Recorded at the moment the finger lands, because the condition changes
-      // under it: reading "in-list" off the marker afterwards said where the bug
-      // was when the screen was photographed, not when the tap was made.
-      mutations = 0;
-      mutatedIn.clear();
-      watcher.observe(els.appShell, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        characterData: true,
-      });
-      down = {
-        target: event.target,
-        y: window.scrollY,
-        at: performance.now(),
-        listTop: els.stopList.scrollTop,
-        inList: Boolean(els.stopList.querySelector(`[data-stop="${state.currentIndex}"]`)),
-        onControl: onAControl(event.target),
-      };
-      paint();
-    },
-    { capture: true, passive: true },
-  );
-
-  window.addEventListener(
-    "pointerup",
-    (event) => {
-      counts.u += 1;
-      // Records queued but not yet delivered still count — they happened inside
-      // the gesture, which is the only thing that matters here.
-      consume(watcher.takeRecords());
-      watcher.disconnect();
-      if (down) {
-        down.mutations = mutations;
-        down.busiest = busiest();
-      }
-      if (down?.onControl) {
-        const token = verdict(false, event);
-        // A click follows pointerup, so the verdict waits to see whether it does.
-        // A full second, because iOS can hold a click behind its tap delay and a
-        // tighter window scored slow clicks as lost ones.
-        down.settled = window.setTimeout(() => {
-          ctrl.no += 1;
-          remember(token);
-          paint();
-        }, 1000);
-      }
-      paint();
-    },
-    { capture: true, passive: true },
-  );
-
-  window.addEventListener(
-    "pointercancel",
-    () => {
-      counts.x += 1;
-      consume(watcher.takeRecords());
-      watcher.disconnect();
-      if (down?.onControl) remember("X");
-      paint();
-    },
-    { capture: true, passive: true },
-  );
-
-  window.addEventListener(
-    "click",
-    () => {
-      counts.c += 1;
-      if (down?.settled) {
-        window.clearTimeout(down.settled);
-        ctrl.ok += 1;
-        remember(verdict(true, null));
-      }
-      down = null;
-      paint();
-    },
-    { capture: true, passive: true },
-  );
-
-  paint();
-  window.setInterval(paint, 500);
-})();
 
 publishRouteRamp();
 initializeMap();
