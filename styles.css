@@ -3069,3 +3069,35 @@ html[data-booting="journey"] .empty-state {
 html[data-off~="sticky"] .place-item.open > .place-button {
   position: static;
 }
+
+/* TEMPORARY: diagnostic switch panel, paired with #switchPanel in index.html.
+   Fixed and tappable, so a configuration can be changed on the phone without a
+   reload. Remove with the build marker. */
+.switch-panel {
+  position: fixed;
+  z-index: 2000;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: calc(100vw - 12px);
+}
+
+.switch-panel button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  color: rgb(from var(--ink) r g b / 0.6);
+  background: rgb(from var(--panel) r g b / 0.9);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+/* Off is the loud state: it is the deviation from a normal build. */
+.switch-panel button.is-off {
+  color: var(--panel);
+  background: var(--coral, #d64d6f);
+}
