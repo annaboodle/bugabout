@@ -911,6 +911,31 @@ function returnLogHome() {
   scrollLogToTop();
 }
 
+// Playback scrolls the log, and on iOS a scroll during a touch makes WebKit
+// treat the whole gesture as a scroll and never synthesise the click — even when
+// the scroller is nowhere near what was tapped. The play button sits over the
+// map, and the log moving 45px under a finger was enough to swallow its click,
+// which is why By place with the bug inside the open place left the page dead to
+// every tap. Measured on a phone: four taps that scrolled all failed, two that
+// did not both worked.
+//
+// So playback yields the scroller for as long as a finger is down. Nothing is
+// lost — the log catches up on release, and a gesture lasts a couple of hundred
+// milliseconds.
+let pointersDown = 0;
+
+for (const type of ["pointerdown", "pointerup", "pointercancel"]) {
+  window.addEventListener(
+    type,
+    () => {
+      pointersDown = type === "pointerdown" ? pointersDown + 1 : Math.max(0, pointersDown - 1);
+      // Catch up once the last finger lifts, so the card is where playback left it.
+      if (!pointersDown && state.playing) pinLogToCurrentStop(state.currentIndex);
+    },
+    { capture: true, passive: true },
+  );
+}
+
 // Sticky place headers park at the top of the log, so pinning a card to the
 // scroller's own top edge slides it underneath them — the country and state rows
 // covered the card they were meant to label as soon as playback started. Measures
@@ -954,6 +979,8 @@ function pinLogToCurrentStop(index) {
   // TEMPORARY: ?off=pin stops playback scrolling the log at all, the other half
   // of the failing pair alongside ?off=sticky. Remove with the build marker.
   if (state.playing && switchedOff("pin")) return true;
+  // The click-synthesis guard above: never move the log under a live gesture.
+  if (pointersDown && state.playing) return true;
   const drift =
     row.getBoundingClientRect().top -
     scroller.getBoundingClientRect().top -
