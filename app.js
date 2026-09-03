@@ -919,9 +919,15 @@ function returnLogHome() {
 // every tap. Measured on a phone: four taps that scrolled all failed, two that
 // did not both worked.
 //
-// So playback yields the scroller for as long as a finger is down. Nothing is
-// lost — the log catches up on release, and a gesture lasts a couple of hundred
-// milliseconds.
+// So playback yields the scroller for as long as a finger is down.
+//
+// Nothing catches up on release, and that is deliberate. Scrolling from the
+// pointerup handler put the scroll *back* inside the gesture — the click is
+// synthesised after pointerup, so a catch-up there suppressed it just as the
+// original scroll had, and by exactly the distance the hold had accumulated
+// (measured on a phone: ✗Ls45, ✗Ls90, ✗Ls120, growing with the hold). Playback
+// advances about seventeen stops a second, so the next stop re-pins within a
+// frame of the finger lifting, well after the click has fired.
 let pointersDown = 0;
 
 for (const type of ["pointerdown", "pointerup", "pointercancel"]) {
@@ -929,8 +935,6 @@ for (const type of ["pointerdown", "pointerup", "pointercancel"]) {
     type,
     () => {
       pointersDown = type === "pointerdown" ? pointersDown + 1 : Math.max(0, pointersDown - 1);
-      // Catch up once the last finger lifts, so the card is where playback left it.
-      if (!pointersDown && state.playing) pinLogToCurrentStop(state.currentIndex);
     },
     { capture: true, passive: true },
   );
