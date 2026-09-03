@@ -2020,29 +2020,16 @@ function paintStopMarkers(index) {
   trailedMarkers = next;
 }
 
-// Watching playback in By place used to leave the log parked wherever it was
-// opened: the bug crossed into California while Washington stayed expanded, so
-// the current stop had no row to pin and the state header sat over the cards.
-// Follow the bug instead, and the pin handles the rest.
+// Following the bug through the log during playback is reverted for now, and
+// must not come back as-is. Opening a place gives expandedLeafIndexes() a leaf,
+// so the windowed cache rows slide as playback advances and logSignature keeps
+// changing — which means els.stopList.innerHTML is replaced over and over while
+// the journey plays. That is the element-removal pattern behind the iOS
+// click-synthesis bug in AGENTS.md, and it broke every tap on the page again.
 //
-// Playback only. A place opened by hand is the user's own choice, and opening a
-// country to look at its states should not spring the first one open underneath.
-// The rebuild this triggers replaces the list's DOM, but only when the bug
-// actually changes place — a couple of dozen times across a journey, not per
-// frame — so it stays clear of the click-synthesis trap in AGENTS.md.
-function followPlaceWhilePlaying(index) {
-  if (!state.playing || logMode !== "place") return;
-  const stop = journey[index];
-  const country = countryNameOf(stop);
-  // Only a country that actually lists this state can expand to it; everywhere
-  // else the country row is the leaf and holds the caches itself.
-  const entry = placeTree.find((place) => place.name === country);
-  const region = entry?.states?.some((state) => state.name === stop.region) ? stop.region : null;
-  if (expandedCountry === country && expandedState === region) return;
-  expandedCountry = country;
-  expandedState = region;
-  // logSignature keys on both, so the next buildStopList rebuilds on its own.
-}
+// With nothing expanded the signature is the constant `p|null|null|` and the
+// list is never rebuilt, which is why By place was safe during playback before.
+// Any future attempt has to slide that window without tearing down DOM.
 
 function updateStops(index) {
   buildStopList(index);
@@ -2171,7 +2158,6 @@ function setProgress(value, options = {}) {
   updateStats(progress, index);
 
   if (indexChanged || options.force) {
-    followPlaceWhilePlaying(index);
     updateStory(index);
     updateStops(index);
     if (options.pan && map && !(followEnabled && followActive)) {
