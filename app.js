@@ -3572,11 +3572,33 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
     why = history.join(" ");
   };
 
+  // ✓/✗ then: L or n for whether the stop had a row, sN for log scroll under the
+  // finger, pN for page scroll, ≠ for pointerup on a different element. Every
+  // hypothesis left is about one of those, so each gesture answers for itself.
+  const verdict = (ok, event) => {
+    const logDy = Math.round(els.stopList.scrollTop - down.listTop);
+    const pageDy = Math.round(window.scrollY - down.y);
+    return (
+      `${ok ? "✓" : "✗"}${down.inList ? "L" : "n"}` +
+      `${logDy ? `s${logDy}` : ""}${pageDy ? `p${pageDy}` : ""}` +
+      `${event && event.target !== down.target ? "≠" : ""}`
+    );
+  };
+
   window.addEventListener(
     "pointerdown",
     (event) => {
       counts.d += 1;
-      down = { target: event.target, y: window.scrollY, onControl: onAControl(event.target) };
+      // Recorded at the moment the finger lands, because the condition changes
+      // under it: reading "in-list" off the marker afterwards said where the bug
+      // was when the screen was photographed, not when the tap was made.
+      down = {
+        target: event.target,
+        y: window.scrollY,
+        listTop: els.stopList.scrollTop,
+        inList: Boolean(els.stopList.querySelector(`[data-stop="${state.currentIndex}"]`)),
+        onControl: onAControl(event.target),
+      };
       paint();
     },
     { capture: true, passive: true },
@@ -3587,11 +3609,11 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
     (event) => {
       counts.u += 1;
       if (down?.onControl) {
-        const dy = Math.round(window.scrollY - down.y);
+        const token = verdict(false, event);
         // A click follows pointerup, so the verdict waits to see whether it does.
         down.settled = window.setTimeout(() => {
           ctrl.no += 1;
-          remember(`✗${dy}${event.target === down.target ? "" : "≠"}`);
+          remember(token);
           paint();
         }, 350);
       }
@@ -3617,7 +3639,7 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
       if (down?.settled) {
         window.clearTimeout(down.settled);
         ctrl.ok += 1;
-        remember("✓");
+        remember(verdict(true, null));
       }
       paint();
     },
