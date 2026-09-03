@@ -951,6 +951,9 @@ function pinLogToCurrentStop(index) {
   if (!row) return false;
   const scroller = logScroller();
   if (!scroller || scroller !== els.stopList) return false;
+  // TEMPORARY: ?off=pin stops playback scrolling the log at all, the other half
+  // of the failing pair alongside ?off=sticky. Remove with the build marker.
+  if (state.playing && switchedOff("pin")) return true;
   const drift =
     row.getBoundingClientRect().top -
     scroller.getBoundingClientRect().top -
@@ -3542,13 +3545,21 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
   };
   requestAnimationFrame(countFrame);
 
+  // Only gestures that began on a control can produce a click, so the aggregate
+  // d/c ratio was diluted by every map drag. `ctrl` counts those alone.
+  const ctrl = { ok: 0, no: 0 };
   const paint = () => {
-    const landed = counts.d ? Math.round((counts.c / counts.d) * 100) : 100;
     const off = document.documentElement.dataset.off;
+    // Whether the current stop even has a row to pin — the failing condition
+    // only exists when it does, which is why the bug must be inside the open
+    // place when the screen is read.
+    const pinned = els.stopList.querySelector(`[data-stop="${state.currentIndex}"]`)
+      ? "in-list"
+      : "no-row";
     marker.textContent =
-      `${build} · ${fps}fps · taps ${counts.c}/${counts.d} (${landed}%)` +
-      `${state.playing ? " ▶" : ""} · ${logMode}` +
-      `${off ? ` · off:${off.replace(/ /g, ",")}` : ""}${why ? ` · ${why}` : ""}`;
+      `${build} · ${fps}fps · ctrl ${ctrl.ok}✓ ${ctrl.no}✗ · ${logMode} ${pinned}` +
+      `${state.playing ? " ▶" : ""}${off ? ` · off:${off.replace(/ /g, ",")}` : ""}` +
+      `${why ? ` · ${why}` : ""}`;
   };
 
   const onAControl = (node) =>
@@ -3579,6 +3590,7 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
         const dy = Math.round(window.scrollY - down.y);
         // A click follows pointerup, so the verdict waits to see whether it does.
         down.settled = window.setTimeout(() => {
+          ctrl.no += 1;
           remember(`✗${dy}${event.target === down.target ? "" : "≠"}`);
           paint();
         }, 350);
@@ -3604,6 +3616,7 @@ els.stylePicker.addEventListener("change", (event) => applyStyle(event.target.va
       counts.c += 1;
       if (down?.settled) {
         window.clearTimeout(down.settled);
+        ctrl.ok += 1;
         remember("✓");
       }
       paint();
