@@ -884,12 +884,11 @@ function returnLogHome() {
   scrollLogToTop();
 }
 
-// Holds the active card at the top of the log as playback moves through it, on
-// mobile where the list is its own scroller. Guards run cheapest-first: both of
-// these decide without touching layout, and `logScroller` reads scrollHeight and
-// clientHeight, which force a reflow.
+// Holds the active card at the top of the log as playback moves through it. The
+// list is its own scroller in both layouts now, so this applies to each. Guards
+// run cheapest-first: `logScroller` reads scrollHeight and clientHeight, a
+// forced reflow, so nothing asks it until the cheap checks have passed.
 function pinLogToCurrentStop(index) {
-  if (!window.matchMedia("(max-width: 780px)").matches) return;
   const row = els.stopList.querySelector(`[data-stop="${index}"]`);
   if (!row) return;
   const scroller = logScroller();

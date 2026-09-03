@@ -2657,6 +2657,37 @@ html[data-booting="journey"] .empty-state {
    simply grew to fit its content and the map row never shrank. If the map hits
    its 360px floor the shell overflows and the page scrolls again, which is the
    right fallback. Desktop only — mobile stacks and is meant to scroll. */
+/* Desktop scrolls the list, not the sidebar around it, so the "Journey log"
+   heading and the By time / By place toggle stay put while the rows move — and
+   the active card can be held at the top without scrolling them away. Mobile
+   already worked this way; this makes the two layouts agree. */
+@media (min-width: 781px) {
+  .journey-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .stops-section {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .stop-list {
+    flex: 1;
+    min-height: 0;
+    /* Clear of the scrollbar, which now sits at the list's edge. */
+    padding-right: 10px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(from var(--ink) r g b / 0.25) transparent;
+  }
+}
+
 @media (min-width: 781px) {
   .app-shell {
     height: 100vh;
