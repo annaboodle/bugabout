@@ -429,12 +429,22 @@ button {
   }
 }
 
-/* Inert while the map uses `preferCanvas` — a canvas layer has no element for
-   this to reach, and the colour is read from the same custom property in JS
-   (`routePreviewColor`). Kept so the rule still exists if the renderer ever
-   goes back to SVG. */
+/* The stroke is inert while the map uses `preferCanvas` — a canvas layer has no
+   element for it to reach, and the colour is read from the same custom property
+   in JS (`routePreviewColor`). Kept in case the renderer goes back to SVG. */
 .route-preview {
   stroke: var(--route-preview);
+}
+
+/* The preview has its own canvas, so its opacity *is* CSS's to own — including
+   the fade, which is what a canvas cannot do from inside its own drawing. */
+.route-preview-canvas {
+  opacity: 0.38;
+  transition: opacity 320ms ease;
+}
+
+.route-preview-canvas.is-hidden {
+  opacity: 0;
 }
 
 /* A modal traps focus but not scrolling: behind an open dialog the page still
@@ -446,6 +456,22 @@ button {
 html:has(dialog[open]),
 html:has(dialog[open]) body {
   overflow: hidden;
+}
+
+/* The splash must not scroll. iOS measures `vh` against the viewport with the
+   browser chrome *hidden*, so a 100vh shell is taller than the screen actually
+   showing it and the empty state picks up a screenful of phantom scroll — which
+   is what pushed the header out of view in an in-app browser. `dvh` measures
+   what is really there. Scoped to the empty state on purpose: that is a static
+   screen with no map, so the relayout `dvh` causes when iOS collapses its
+   toolbar has nothing to disturb, which is the risk that kept it off the
+   journey view. */
+body:has(.app-shell[data-state="empty"]) {
+  min-height: 100dvh;
+}
+
+.app-shell[data-state="empty"] {
+  min-height: 100dvh;
 }
 
 .app-shell {
@@ -1302,11 +1328,16 @@ html[data-booting="journey"] .empty-state {
   background: var(--mint);
 }
 
-/* Parks directly under the country header. A gap here is not empty space — it
-   is a slot the rows underneath scroll through. */
+/* Parks under the country header, keeping the same 5px of air the closed row
+   sits with — collapsing it on open made the two rows read as one block. The
+   gap between two stuck rows is a slot the cache cards would scroll through, so
+   the upward shadow fills it with the list's own background; the spread carries
+   it past the pill's rounded corners, and its own top edge tucks under the
+   country row, which stacks higher. */
 .place-item.state-item.open > .place-button {
   z-index: 4;
-  top: var(--place-row-height);
+  top: calc(var(--place-row-height) + 5px);
+  box-shadow: 0 -5px 0 2px var(--panel);
 }
 
 /* While playing, the log is scrolled by playback and not by hand. Leaving it
@@ -1924,7 +1955,6 @@ html[data-booting="journey"] .empty-state {
   align-items: flex-end;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 10px;
 }
 
 .player-position {
@@ -2055,22 +2085,48 @@ html[data-booting="journey"] .empty-state {
   background: rgb(from var(--green) r g b / 0.08);
 }
 
+/* The input is 33px tall so there is something to grab, but it paints nothing
+   itself — the 5px track is drawn by the track pseudo-element below. Painting
+   the input's own background and clipping it to a padding box does not work:
+   `border-radius` still resolves against the full 33px box, so the pill's ends
+   taper away instead of capping the 5px strip. */
 .timeline {
   width: 100%;
-  height: 5px;
+  height: 33px;
   display: block;
   margin: 0;
+  padding: 0;
   appearance: none;
-  border-radius: 999px;
   outline: none;
+  background: transparent;
+}
+
+/* Split deliberately: a selector list containing an unrecognised vendor
+   pseudo-element is dropped in full, so pairing these would leave both browsers
+   with no track at all. */
+.timeline::-webkit-slider-runnable-track {
+  height: 5px;
+  border: 0;
+  border-radius: 999px;
+  background-image:
+    linear-gradient(to right, transparent var(--progress, 0%), var(--track) var(--progress, 0%)),
+    var(--route-ramp, linear-gradient(to right, var(--coral), var(--coral)));
+}
+
+.timeline::-moz-range-track {
+  height: 5px;
+  border: 0;
+  border-radius: 999px;
   background-image:
     linear-gradient(to right, transparent var(--progress, 0%), var(--track) var(--progress, 0%)),
     var(--route-ramp, linear-gradient(to right, var(--coral), var(--coral)));
 }
 
 .timeline::-webkit-slider-thumb {
-  width: 15px;
-  height: 15px;
+  width: 21px;
+  height: 21px;
+  /* Half the track's height minus half the thumb's, so it rides the centre. */
+  margin-top: -8px;
   appearance: none;
   border: 3px solid white;
   border-radius: 50%;
@@ -2080,8 +2136,8 @@ html[data-booting="journey"] .empty-state {
 }
 
 .timeline::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border: 3px solid white;
   border-radius: 50%;
   background: var(--coral);
@@ -2110,7 +2166,7 @@ html[data-booting="journey"] .empty-state {
   /* Padded so the hover pill has room, then pulled back by the same amount so
      the S of "Speed" still lines up with the scrubber. Removing the padding
      outright aligned the text but left the pill clamped to the letters. */
-  margin: 7px 0 0 -7px;
+  margin: 0 0 0 -7px;
   padding: 0 7px;
   font-size: 10px;
 }

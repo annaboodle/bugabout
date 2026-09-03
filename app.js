@@ -289,6 +289,12 @@ let routeRamp = ["#3a2a9e", "#d92d5e"];
 // canvas renderer needs it as a plain colour.
 // Was `.route-preview { opacity: 0.38 }` before the route moved to canvas.
 const ROUTE_PREVIEW_OPACITY = 0.38;
+let previewRenderer = null;
+
+// The vendored Leaflet build exposes no `getContainer()` on a renderer, so the
+// canvas is read from `_container`. Pinned in vendor/, and guarded, so a build
+// that changes the field degrades to no fade rather than throwing.
+const previewCanvas = () => previewRenderer?._container ?? null;
 
 function routePreviewColor() {
   return (
@@ -300,7 +306,7 @@ function routePreviewColor() {
 // The preview used to be hidden by `.map-stage.playing .route-preview`, which a
 // canvas layer never sees.
 function syncRoutePreview() {
-  routeLine?.setStyle({ opacity: state.playing ? 0 : ROUTE_PREVIEW_OPACITY });
+  previewCanvas()?.classList.toggle("is-hidden", state.playing);
 }
 
 function readRouteStops() {
@@ -862,10 +868,17 @@ function scrollPlaceToRest(placeItem) {
   const countryHeader = placeItem.classList.contains("state-item")
     ? placeItem.closest(".place-item[data-country]")?.querySelector(":scope > .place-button")
     : null;
+  // Read back off the sticky row rather than re-deriving it: a state parks below
+  // the country header *and* the air above itself, so resting it at the header's
+  // bare height left sticky to make up the difference — clamping the row 5px
+  // down over the gap above its first cache card. Falls back to the header's
+  // height for a state that is active without being open, which is not sticky.
+  const stuck = countryHeader
+    ? parseFloat(getComputedStyle(placeItem.querySelector(":scope > .place-button")).top)
+    : 0;
+  const rest = Number.isFinite(stuck) ? stuck : countryHeader.offsetHeight;
   const drift =
-    placeItem.getBoundingClientRect().top -
-    scroller.getBoundingClientRect().top -
-    (countryHeader?.offsetHeight ?? 0);
+    placeItem.getBoundingClientRect().top - scroller.getBoundingClientRect().top - rest;
   if (Math.abs(drift) < 1) return;
   scroller.scrollTo({ top: scroller.scrollTop + drift, behavior: scrollBehavior() });
 }
@@ -890,6 +903,37 @@ function returnLogHome() {
   scrollLogToTop();
 }
 
+// Sticky place headers park at the top of the log, so pinning a card to the
+// scroller's own top edge slides it underneath them — the country and state rows
+// covered the card they were meant to label as soon as playback started. Measures
+// the stack standing above this row and pins below it, keeping the same air an
+// opened place leaves above its first card.
+//
+// Cached because the pin runs on every index change — seventeen times a second on
+// a long journey — and this reads computed style. What it depends on is which
+// places are open, not where playback has reached, so the mode, the open pair and
+// the width are the whole key.
+let stickyInset = { key: null, value: 0 };
+
+function stickyLogInset(row) {
+  const key = `${logMode}|${expandedCountry}|${expandedState}|${window.innerWidth}`;
+  if (stickyInset.key === key) return stickyInset.value;
+  let value = 0;
+  for (
+    let item = row.parentElement?.closest(".place-item");
+    item;
+    item = item.parentElement?.closest(".place-item")
+  ) {
+    const button = item.querySelector(":scope > .place-button");
+    if (!button || getComputedStyle(button).position !== "sticky") continue;
+    value = Math.max(value, (parseFloat(getComputedStyle(button).top) || 0) + button.offsetHeight);
+  }
+  // Read back rather than hard-coded, so it tracks .place-children's margin.
+  if (value) value += parseFloat(getComputedStyle(row.parentElement).marginTop) || 0;
+  stickyInset = { key, value };
+  return value;
+}
+
 // Holds the active card at the top of the log as playback moves through it. The
 // list is its own scroller in both layouts now, so this applies to each. Guards
 // run cheapest-first: `logScroller` reads scrollHeight and clientHeight, a
@@ -899,7 +943,10 @@ function pinLogToCurrentStop(index) {
   if (!row) return false;
   const scroller = logScroller();
   if (!scroller || scroller !== els.stopList) return false;
-  const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  const drift =
+    row.getBoundingClientRect().top -
+    scroller.getBoundingClientRect().top -
+    stickyLogInset(row);
   // Pinned, not merely kept in view. The window start is quantised to steps of
   // eight, so without this the card walks eight rows — about 360px — down the
   // list before the next rebuild snaps it back.
@@ -1135,6 +1182,8 @@ function clearMapJourney() {
     if (layer) map.removeLayer(layer);
   });
   stopMarkers.forEach((marker) => map.removeLayer(marker));
+  if (previewRenderer) map.removeLayer(previewRenderer);
+  previewRenderer = null;
   routeLine = null;
   routeBands = [];
   bugMarkers = [];
@@ -1148,19 +1197,25 @@ function buildMapJourney() {
   if (!map || !journey.length) return;
   clearMapJourney();
 
+  // Its own canvas, created before the bands so it sits under them. Giving the
+  // preview a dedicated renderer means there *is* an element for CSS to reach
+  // again: the opacity and its 320ms fade live on that canvas, so hiding the
+  // unvisited route during playback is a composited fade rather than a redraw.
+  previewRenderer = L.canvas({ padding: 0.5 });
   routeLine = L.polyline(routeLatLngs(journey), {
     className: "route-preview",
-    // A canvas layer has no element for CSS to reach, so the themed colour is
-    // read here instead of being applied by the stylesheet.
+    renderer: previewRenderer,
+    // Still read here: the stroke is painted into the canvas, which no
+    // stylesheet can restyle. Only the element's opacity is CSS's to animate.
     color: routePreviewColor(),
     weight: 3,
-    // 0.38 was `.route-preview`'s CSS opacity. A canvas layer never saw it, so
-    // the unvisited route drew at full strength and read far darker than it had.
-    opacity: state.playing ? 0 : ROUTE_PREVIEW_OPACITY,
+    opacity: 1,
     dashArray: "2 9",
     lineCap: "round",
     interactive: false,
   }).addTo(map);
+  previewCanvas()?.classList.add("route-preview-canvas");
+  syncRoutePreview();
 
   buildRouteBands();
 
@@ -1965,6 +2020,30 @@ function paintStopMarkers(index) {
   trailedMarkers = next;
 }
 
+// Watching playback in By place used to leave the log parked wherever it was
+// opened: the bug crossed into California while Washington stayed expanded, so
+// the current stop had no row to pin and the state header sat over the cards.
+// Follow the bug instead, and the pin handles the rest.
+//
+// Playback only. A place opened by hand is the user's own choice, and opening a
+// country to look at its states should not spring the first one open underneath.
+// The rebuild this triggers replaces the list's DOM, but only when the bug
+// actually changes place — a couple of dozen times across a journey, not per
+// frame — so it stays clear of the click-synthesis trap in AGENTS.md.
+function followPlaceWhilePlaying(index) {
+  if (!state.playing || logMode !== "place") return;
+  const stop = journey[index];
+  const country = countryNameOf(stop);
+  // Only a country that actually lists this state can expand to it; everywhere
+  // else the country row is the leaf and holds the caches itself.
+  const entry = placeTree.find((place) => place.name === country);
+  const region = entry?.states?.some((state) => state.name === stop.region) ? stop.region : null;
+  if (expandedCountry === country && expandedState === region) return;
+  expandedCountry = country;
+  expandedState = region;
+  // logSignature keys on both, so the next buildStopList rebuilds on its own.
+}
+
 function updateStops(index) {
   buildStopList(index);
   els.stopList.querySelectorAll(".stop-item").forEach((item) => {
@@ -2092,13 +2171,19 @@ function setProgress(value, options = {}) {
   updateStats(progress, index);
 
   if (indexChanged || options.force) {
+    followPlaceWhilePlaying(index);
     updateStory(index);
     updateStops(index);
     if (options.pan && map && !(followEnabled && followActive)) {
       map.panTo([journey[index].lat, journey[index].lng], { animate: true, duration: 0.7 });
     }
+    // `scroll: false` picks the pin over a full scroll rather than leaving the
+    // scroller alone, so a caller that means to place the log itself opts out of
+    // both. Two smooth scrolls issued back to back cancel each other and settle
+    // between their targets, which is how opening a place landed its first cache
+    // card under the sticky headers about half the time.
     if (options.scroll) scrollLogToStop(index);
-    else pinLogToCurrentStop(index);
+    else if (options.pin !== false) pinLogToCurrentStop(index);
   }
 }
 
@@ -2110,17 +2195,11 @@ function playbackDuration() {
   return clamp(12000 + 2800 * Math.sqrt(journey.length), 12000, 150000);
 }
 
-// Playback advances every frame but only *renders* on a budget. A rendered frame
-// restyles the route, rewrites the readouts and, when the stop changes, rebuilds
-// the log window and repaints up to MARKER_BUDGET markers. Sixty of those a
-// second is affordable on a desktop and is not on a phone: the main thread stays
-// busy enough that iOS stops delivering taps altogether — every button on the
-// page goes dead while the map still pans, because gestures are compositor-driven
-// and a tap needs a click the browser has given up on.
-//
-// Progress still accumulates from the real elapsed time, so the journey takes
-// exactly as long either way; only the number of repaints changes.
-const RENDER_INTERVAL_MS = window.matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 0;
+// Playback renders every frame. A 30fps cap was tried on touch while the tap bug
+// was still thought to be a performance problem; it was not, and the cap only
+// cost smoothness. `pendingProgress` remains so that any future budget can be
+// reintroduced without changing how progress accumulates.
+const RENDER_INTERVAL_MS = 0;
 let pendingProgress = null;
 let lastRenderTime = 0;
 
@@ -2712,7 +2791,7 @@ async function enrichCountries() {
 
 // Places reached up to the current stop, in the order the bug first arrived —
 // the same basis as the readout the list is opened from.
-function visitedPlaces(kind, index) {
+function visitedPlaces(kind, index, order = "count") {
   const seen = new Map();
   for (let i = 0; i <= index; i += 1) {
     const stop = journey[i];
@@ -2731,11 +2810,16 @@ function visitedPlaces(kind, index) {
   }
   // Distinct caches rather than stops: a cache visited three times is one cache,
   // a line the Caches dialog already draws between "Different caches" and
-  // "Mapped stops". Sorting is stable, so places tied on count stay in the order
-  // the bug reached them.
-  return [...seen.values()]
-    .map(({ name, flag, codes }) => ({ name, flag, count: codes.size }))
-    .sort((a, b) => b.count - a.count);
+  // "Mapped stops".
+  const places = [...seen.values()].map(({ name, flag, codes }) => ({
+    name,
+    flag,
+    count: codes.size,
+  }));
+  // A Map keeps insertion order, and this walked the journey in order, so the
+  // list is already chronological. Sorting is stable, so places tied on count
+  // stay in the order the bug reached them.
+  return order === "count" ? places.sort((a, b) => b.count - a.count) : places;
 }
 
 const PLACE_NOUNS = {
@@ -2795,12 +2879,15 @@ function openDetail(eyebrow, title, rows, { emoji } = {}) {
   updatePlacesScroll();
 }
 
-function openPlaces(kind, index = state.currentIndex) {
-  const places = visitedPlaces(kind, index);
+// The stats bar asks "where has this bug been the most", so it ranks by caches.
+// The player card's readouts are a running tally of a journey in progress, so
+// they read in the order the bug actually reached each place.
+function openPlaces(kind, { index = state.currentIndex, order = "count" } = {}) {
+  const places = visitedPlaces(kind, index, order);
   const [noun, plural] = PLACE_NOUNS[kind] ?? PLACE_NOUNS.countries;
   const whole = index >= journey.length - 1;
   openDetail(
-    "Most caches first",
+    order === "count" ? "Most caches first" : "In the order reached",
     `${places.length.toLocaleString("en-US")} ${places.length === 1 ? noun : plural}${whole ? "" : " so far"}`,
     places.map((place) => ({
       name: place.name,
@@ -3027,7 +3114,7 @@ function openStatDetail(kind) {
   if (kind === "caches") return openCaches();
   if (kind === "hops") return openHops();
   if (kind === "dateline") return openDateLine();
-  return openPlaces(kind, journey.length - 1);
+  return openPlaces(kind, { index: journey.length - 1 });
 }
 
 let shareLink = null;
@@ -3179,7 +3266,8 @@ els.stopList.addEventListener("click", (event) => {
       : country?.states.find((region) => region.name === name)?.indexes;
     if (indexes?.length) {
       pause();
-      setProgress(indexes[0] * 100, { force: true, pan: true, scroll: false });
+      // scrollPlaceToRest below owns where the log lands.
+      setProgress(indexes[0] * 100, { force: true, pan: true, scroll: false, pin: false });
     }
   }
   rebuildLogWithTransition(() => {}, { anchor: false });
@@ -3302,8 +3390,8 @@ els.journeyStats.addEventListener("keydown", (event) => {
   openStatDetail(tile.dataset.open);
 });
 
-els.countryStatCard.addEventListener("click", () => openPlaces("countries"));
-els.stateReadout.addEventListener("click", () => openPlaces("states"));
+els.countryStatCard.addEventListener("click", () => openPlaces("countries", { order: "first" }));
+els.stateReadout.addEventListener("click", () => openPlaces("states", { order: "first" }));
 // A 1px tolerance: fractional scroll positions never settle exactly on an end.
 function dialogBody() {
   return els.placesText.hidden ? els.placesList : els.placesText;
