@@ -739,12 +739,15 @@ html[data-booting="journey"] .empty-state {
 
 .journey-sidebar {
   grid-area: sidebar;
+  /* The horizontal inset, shared with `.stop-list` so the scroll track can
+     reach the panel edge while the rows stay aligned with the heading. */
+  --sidebar-inset: 24px;
   min-width: 0;
   overflow-y: auto;
   /* No top padding: a sticky header offsets from the scrollport, so any padding
      here becomes a band above it where rows stay visible as they scroll past.
      The space moves onto the content instead. */
-  padding: 0 24px 30px;
+  padding: 0 var(--sidebar-inset) 30px;
   border-right: 1px solid var(--line);
   background:
     linear-gradient(rgb(from var(--panel) r g b / 0.96), rgb(from var(--panel) r g b / 0.96)),
@@ -1304,6 +1307,22 @@ html[data-booting="journey"] .empty-state {
 .place-item.state-item.open > .place-button {
   z-index: 4;
   top: var(--place-row-height);
+}
+
+/* While playing, the log is scrolled by playback and not by hand. Leaving it
+   user-scrollable made the thumb jump on every stop, and offered a control that
+   fights the thing driving it. `overflow: hidden` still scrolls under script,
+   so `pinLogToCurrentStop` keeps working; only the user's grip is removed. */
+.app-shell[data-playing] .stop-list {
+  overflow-y: hidden;
+}
+
+/* The 140ms background fade never finishes at playback pace — stops arrive
+   about every 59ms — so the card at the top sat permanently mid-transition and
+   flickered between transparent and filled. It takes its background at once
+   while playing. */
+.app-shell[data-playing] .stop-button {
+  transition: none;
 }
 
 .stop-list {
@@ -2679,12 +2698,17 @@ html[data-booting="journey"] .empty-state {
   .stop-list {
     flex: 1;
     min-height: 0;
-    /* Clear of the scrollbar, which now sits at the list's edge. */
-    padding-right: 10px;
+    /* The negative card bleed is cancelled on the right so the track sits
+       against the panel's inner edge, where it read as chrome when the sidebar
+       was the scroller — inset, it looked like something floating in the
+       gutter. The matching padding keeps the rows ending where the heading
+       above them does. */
+    margin-right: calc(-1 * var(--sidebar-inset));
+    padding-right: var(--sidebar-inset);
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-width: thin;
-    scrollbar-color: rgb(from var(--ink) r g b / 0.25) transparent;
+    scrollbar-color: rgb(from var(--ink) r g b / 0.18) transparent;
   }
 }
 
@@ -2709,7 +2733,8 @@ html[data-booting="journey"] .empty-state {
   }
 
   .journey-sidebar {
-    padding: 0 19px 28px;
+    --sidebar-inset: 19px;
+    padding: 0 var(--sidebar-inset) 28px;
   }
 
   .stops-section {

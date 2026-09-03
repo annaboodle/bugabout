@@ -528,6 +528,12 @@ function indexWindow(indexes, centerIndex) {
   const lastStart = indexes.length - size;
   let start = clamp(position - logExpandBefore, 0, lastStart);
   start = Math.min(lastStart, Math.floor(start / LOG_WINDOW_STEP) * LOG_WINDOW_STEP);
+  // Snap to the true end rather than stopping a few rows short of it. Flooring
+  // to a step can leave `end` up to LOG_WINDOW_STEP - 1 below the last index,
+  // which showed a "later stops" gap that could never be exhausted: expanding it
+  // grew `size`, which pulled `start` backwards, so the rows appeared above the
+  // window and the count stayed put.
+  if (start > lastStart - LOG_WINDOW_STEP) start = lastStart;
   if (logWindowStart !== null) {
     const pinned = clamp(logWindowStart, 0, indexes.length - size);
     if (position >= pinned && position < pinned + size) start = pinned;
@@ -890,18 +896,19 @@ function returnLogHome() {
 // forced reflow, so nothing asks it until the cheap checks have passed.
 function pinLogToCurrentStop(index) {
   const row = els.stopList.querySelector(`[data-stop="${index}"]`);
-  if (!row) return;
+  if (!row) return false;
   const scroller = logScroller();
-  if (!scroller || scroller !== els.stopList) return;
+  if (!scroller || scroller !== els.stopList) return false;
   const drift = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
   // Pinned, not merely kept in view. The window start is quantised to steps of
   // eight, so without this the card walks eight rows — about 360px — down the
   // list before the next rebuild snaps it back.
-  if (Math.abs(drift) < 2) return;
+  if (Math.abs(drift) < 2) return true;
   scroller.scrollTo({
     top: scroller.scrollTop + drift,
     behavior: state.playing ? "auto" : scrollBehavior(),
   });
+  return true;
 }
 
 function scrollLogToStop(index) {
@@ -940,6 +947,13 @@ function setLogMode(mode) {
   els.stopList.classList.add("log-swap");
   buildStopList(state.currentIndex, true);
   updateStops(state.currentIndex);
+
+  // The old list's scroll position means nothing in the new one, so switching
+  // used to land mid-list on whatever happened to be at that offset. Go to
+  // where the bug currently is: its country in By place, its stop in By time.
+  const active = els.stopList.querySelector(".place-item.active");
+  if (active) scrollPlaceToRest(active);
+  else if (!pinLogToCurrentStop(state.currentIndex)) scrollLogToTop();
 }
 
 function initializeMap() {
@@ -2152,6 +2166,9 @@ function play() {
   els.mapStage.classList.add("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Pause journey");
+  // Playback drives the log, so the user does not also get to scroll it. An
+  // attribute, never a node change — see the click-synthesis note in AGENTS.md.
+  els.appShell.dataset.playing = "true";
   state.frame = requestAnimationFrame(tick);
 }
 
@@ -2164,6 +2181,7 @@ function pause() {
   els.mapStage.classList.remove("playing");
   syncRoutePreview();
   els.playButton.setAttribute("aria-label", "Play journey");
+  delete els.appShell.dataset.playing;
   if (state.frame) cancelAnimationFrame(state.frame);
   state.frame = null;
 }
